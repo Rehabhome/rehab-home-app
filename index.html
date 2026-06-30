@@ -6,7 +6,7 @@
 <title>Rehab Home</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalhone/7.23.2/babel.min.js"></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:system-ui,sans-serif;background:#F8FAFB;color:#1a1a2e}
@@ -394,9 +394,12 @@ function FormularioInforme({ tipo, tipoLabel, paciente, profesional, onGuardado,
         body: JSON.stringify({ paciente_id: paciente.id, profesional_id: profesional?.id||null, tipo, fecha: form.fecha||HOY, datos })
       });
       if (!res.ok) throw new Error(await res.text());
-      // Enviar email al paciente via Netlify Function + Resend
+            // Enviar email al paciente via Netlify Function + Brevo
       if (EMAIL_ENABLED && paciente?.email) {
         try {
+          const camposEmail = campos
+            .filter(c => form[c.key] !== undefined && form[c.key] !== null && String(form[c.key]).trim() !== '')
+            .map(c => ({ label: c.label, value: form[c.key] }));
           await fetch('/.netlify/functions/send-email', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -406,6 +409,7 @@ function FormularioInforme({ tipo, tipoLabel, paciente, profesional, onGuardado,
               tipo_informe: tipoLabel,
               fecha: form.fecha || HOY,
               profesional_nombre: profesional?.nombre || '',
+              campos: camposEmail,
             }),
           });
         } catch(emailErr) {
