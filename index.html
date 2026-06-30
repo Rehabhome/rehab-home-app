@@ -17,7 +17,6 @@
     body { background: #fff !important; }
   }
 </style>
-  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </head>
 <body>
 <div id="root"></div>
@@ -27,12 +26,9 @@ const { useState, useEffect, useMemo } = React;
 const SUPABASE_URL = "https://wpzwpfknranglhdzoywd.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndwendwZmtucmFuZ2xoZHpveXdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxOTA0MzcsImV4cCI6MjA5NDc2NjQzN30.09XtJ_DAm4PahYyy5aFUkpCeZgGWPn8PmOcjJQIDvVc";
 
-/* ===== EmailJS config (reemplaza con tus valores de emailjs.com) ===== */
-const EMAILJS_PUBLIC_KEY  = "u_a7N-NTWYGFX9H70";   // Account → General
-const EMAILJS_SERVICE_ID  = "service_322rsf4";   // Email Services
-const EMAILJS_TEMPLATE_ID = "template_ksuyv2x";  // Email Templates
-const EMAILJS_ENABLED     = true; // Cambiar a true cuando estén configurados
-/* ==================================================================== */
+/* ===== Email config (Netlify Function + Resend) ===== */
+const EMAIL_ENABLED = true; // false para deshabilitar temporalmente
+/* ==================================================== */
 
 const db = {
   get: async (table, params="") => {
@@ -398,16 +394,20 @@ function FormularioInforme({ tipo, tipoLabel, paciente, profesional, onGuardado,
         body: JSON.stringify({ paciente_id: paciente.id, profesional_id: profesional?.id||null, tipo, fecha: form.fecha||HOY, datos })
       });
       if (!res.ok) throw new Error(await res.text());
-      // Enviar email al paciente si EmailJS está configurado
-      if (EMAILJS_ENABLED && paciente?.email) {
+      // Enviar email al paciente via Netlify Function + Resend
+      if (EMAIL_ENABLED && paciente?.email) {
         try {
-          await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
-            to_email: paciente.email,
-            paciente_nombre: paciente.nombre || '',
-            tipo_informe: tipoLabel,
-            fecha: form.fecha || HOY,
-            profesional_nombre: profesional?.nombre || '',
-          }, EMAILJS_PUBLIC_KEY);
+          await fetch('/.netlify/functions/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: paciente.email,
+              paciente_nombre: paciente.nombre || '',
+              tipo_informe: tipoLabel,
+              fecha: form.fecha || HOY,
+              profesional_nombre: profesional?.nombre || '',
+            }),
+          });
         } catch(emailErr) {
           console.warn('Email no enviado:', emailErr);
         }
