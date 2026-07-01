@@ -374,21 +374,34 @@ function generarPdfBase64(campos, form, paciente, tipoLabel, profesional) {
   const PAGE_W = 210;
   const MARGIN = 18;
   const TEXT_W = PAGE_W - MARGIN * 2;
-  const TEAL = [28, 134, 158];
-  const DARK = [31, 45, 61];
-  const SLATE = [100, 116, 139];
-  const HAIR = [230, 237, 240];
-  let y = 15;
-  doc.setFillColor(...TEAL);
-  doc.rect(0, 0, PAGE_W, 28, 'F');
+  const TEAL_RGB = [28, 134, 158];
+  const DARK_RGB = [31, 45, 61];
+  const SLATE_RGB = [100, 116, 139];
+  const HAIR_RGB = [230, 237, 240];
+  const HEADER_H = 38;
+
+  /* ── Header ────────────────────────────────────────────── */
+  doc.setFillColor(...TEAL_RGB);
+  doc.rect(0, 0, PAGE_W, HEADER_H, 'F');
+  try { doc.addImage(ICON, 'PNG', MARGIN, 7, 22, 22); } catch(e) {}
+  doc.setDrawColor(255, 255, 255);
+  doc.setLineWidth(0.4);
+  doc.line(MARGIN + 26, 9, MARGIN + 26, HEADER_H - 8);
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(20);
+  doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
-  doc.text('RehabHome', MARGIN, y + 6);
-  doc.setFontSize(10);
+  doc.text('RehabHome', MARGIN + 30, 17);
+  doc.setFontSize(7.5);
   doc.setFont('helvetica', 'normal');
-  doc.text('Documento Clinico', MARGIN, y + 13);
-  y = 38;
+  doc.text('Rehabilitacion a Domicilio', MARGIN + 30, 23);
+  doc.text('Kinesiologia, Fonoaudiologia, Terapia Ocupacional', MARGIN + 30, 28.5);
+  const safeLabel = (tipoLabel || 'Informe Clinico').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x00-\x7F]/g, '?');
+  doc.setFontSize(8.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text(safeLabel.toUpperCase(), MARGIN + 30, 35);
+
+  /* ── Patient info rows ─────────────────────────────────── */
+  let y = HEADER_H + 10;
   const infoRows = [
     ['Paciente', paciente?.nombre || '-'],
     ['Tipo de informe', tipoLabel || '-'],
@@ -396,73 +409,72 @@ function generarPdfBase64(campos, form, paciente, tipoLabel, profesional) {
     ['Profesional', profesional?.nombre || '-'],
   ];
   infoRows.forEach(([lbl, val]) => {
-    doc.setFillColor(...HAIR);
+    doc.setFillColor(...HAIR_RGB);
     doc.rect(MARGIN, y - 4.5, 52, 8, 'F');
-    doc.setTextColor(...SLATE);
+    doc.setTextColor(...SLATE_RGB);
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
     doc.text(lbl.toUpperCase(), MARGIN + 2, y);
-    doc.setTextColor(...DARK);
+    doc.setTextColor(...DARK_RGB);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     const safeVal = String(val).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x00-\x7F]/g, '?');
     doc.text(safeVal, MARGIN + 56, y);
     y += 10;
   });
+
+  /* ── Content section header ────────────────────────────── */
   y += 4;
-  doc.setTextColor(...TEAL);
+  doc.setTextColor(...TEAL_RGB);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
   doc.text('CONTENIDO DEL INFORME', MARGIN, y);
-  doc.setDrawColor(...TEAL);
+  doc.setDrawColor(...TEAL_RGB);
   doc.line(MARGIN, y + 1.5, PAGE_W - MARGIN, y + 1.5);
   y += 8;
+
   const filled = campos.filter(c =>
     form[c.key] !== undefined && form[c.key] !== null && String(form[c.key]).trim() !== ''
   );
   if (filled.length === 0) {
-    doc.setTextColor(...SLATE);
+    doc.setTextColor(...SLATE_RGB);
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'italic');
-    doc.setFontSize(10);
-    doc.text('Sin contenido adicional.', MARGIN, y);
-    y += 8;
+    doc.text('Sin contenido registrado.', MARGIN, y);
   }
   filled.forEach(c => {
     if (y > 260) { doc.addPage(); y = 20; }
-    doc.setFillColor(...HAIR);
-    doc.rect(MARGIN, y - 4.5, TEXT_W, 7, 'F');
-    doc.setTextColor(...SLATE);
+    doc.setFillColor(...HAIR_RGB);
+    doc.rect(MARGIN, y - 3.5, TEXT_W, 6, 'F');
+    doc.setTextColor(...TEAL_RGB);
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
-    const safeLabel = String(c.label).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x00-\x7F]/g, '?').toUpperCase();
-    doc.text(safeLabel, MARGIN + 2, y);
-    y += 8;
-    const rawVal = form[c.key];
-    let txt = '';
-    if (Array.isArray(rawVal)) {
-      txt = rawVal.map(item => (typeof item === 'object' ? (item.texto || JSON.stringify(item)) : String(item))).join('\n');
-    } else {
-      txt = String(rawVal);
-    }
-    const safeTxt = txt.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x00-\x7F]/g, '?');
-    doc.setTextColor(...DARK);
-    doc.setFont('helvetica', 'normal');
+    const safeKey = (c.label || c.key).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x00-\x7F]/g, '?');
+    doc.text(safeKey.toUpperCase(), MARGIN + 2, y);
+    y += 6;
+    doc.setTextColor(...DARK_RGB);
     doc.setFontSize(10);
-    const lines = doc.splitTextToSize(safeTxt, TEXT_W - 4);
+    doc.setFont('helvetica', 'normal');
+    const rawVal = String(form[c.key]).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x00-\x7F]/g, '?');
+    const lines = doc.splitTextToSize(rawVal, TEXT_W - 4);
     lines.forEach(line => {
-      if (y > 272) { doc.addPage(); y = 20; }
+      if (y > 260) { doc.addPage(); y = 20; }
       doc.text(line, MARGIN + 2, y);
       y += 6;
     });
-    y += 4;
+    y += 3;
   });
+
+  /* ── Footer ────────────────────────────────────────────── */
   const footerY = 285;
-  doc.setDrawColor(...HAIR);
+  doc.setDrawColor(...HAIR_RGB);
   doc.line(MARGIN, footerY - 4, PAGE_W - MARGIN, footerY - 4);
-  doc.setTextColor(...SLATE);
+  doc.setTextColor(...SLATE_RGB);
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.text('RehabHome · rehabhome.cl · Para consultas, responda este correo.', MARGIN, footerY);
+  doc.setFont('helvetica', 'bold');
+  const footerText = 'RehabHome SpA - Rehabhome.cl';
+  const textW = doc.getTextWidth(footerText);
+  doc.text(footerText, (PAGE_W - textW) / 2, footerY);
   return doc.output('datauristring').split(',')[1];
 }
 
