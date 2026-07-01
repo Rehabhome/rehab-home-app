@@ -465,7 +465,39 @@ function generarPdfBase64(campos, form, paciente, tipoLabel, profesional) {
     y += 3;
   });
 
-  /* ── Footer ────────────────────────────────────────────── */
+    /* ── Profesional responsable ──────────────────────────── */
+  y += 8;
+  if (y > 250) { doc.addPage(); y = 20; }
+  doc.setTextColor(...TEAL_RGB);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('PROFESIONAL RESPONSABLE', MARGIN, y);
+  doc.setDrawColor(...TEAL_RGB);
+  doc.line(MARGIN, y + 1.5, PAGE_W - MARGIN, y + 1.5);
+  y += 9;
+  const profRows = [
+    ['Profesional tratante', profesional?.nombre || '-'],
+    ['RUT', profesional?.rut || '-'],
+    ['Profesion', profesional?.especialidad || profesional?.profesion || '-'],
+    ['N Registro Superintendencia de Salud', profesional?.registro_superintendencia || profesional?.registroSuperintendencia || '-'],
+  ];
+  profRows.forEach(([lbl, val]) => {
+    if (y > 265) { doc.addPage(); y = 20; }
+    doc.setFillColor(...HAIR_RGB);
+    doc.rect(MARGIN, y - 4.5, 80, 8, 'F');
+    doc.setTextColor(...SLATE_RGB);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text(lbl.toUpperCase(), MARGIN + 2, y);
+    doc.setTextColor(...DARK_RGB);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    const safeProf = String(val).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\x00-\x7F]/g, '?');
+    doc.text(safeProf, MARGIN + 84, y);
+    y += 10;
+  });
+
+/* ── Footer ────────────────────────────────────────────── */
   const footerY = 285;
   doc.setDrawColor(...HAIR_RGB);
   doc.line(MARGIN, footerY - 4, PAGE_W - MARGIN, footerY - 4);
