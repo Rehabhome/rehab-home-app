@@ -986,12 +986,7 @@ function App() {
     else { saved=await db.post("evoluciones",evoData); if(Array.isArray(saved)&&saved[0]) setEvoluciones(prev=>[saved[0],...prev]); }
     setGuardado(true); setEmailStatus("ok");
     await logEmail("evolucion",pacienteActivo.email,pacienteActivo.nombre,`Rehab Home | ${prof?prof.especialidad:""} | Evolución de su atención - ${pacienteActivo.fecha}`,"enviado");
-  };
-
-  const handleReminder = async () => {
-    if(!usuario) return;
-    await logEmail("recordatorio",usuario.email,usuario.nombre,`Rehab Home | ${usuario.especialidad} | Recordatorio: Evoluciones pendientes`,"enviado");
-        // Enviar email al paciente con PDF de la evolucion via Netlify + Brevo
+    // Enviar email al paciente con PDF de la evolucion via Netlify + Brevo
     if (EMAIL_ENABLED && pacienteActivo?.email) {
       try {
         let pdfEvo = null;
@@ -1014,6 +1009,11 @@ function App() {
         });
       } catch(evoEmailErr) { console.warn('Email evolucion no enviado:', evoEmailErr); }
     }
+  };
+
+  const handleReminder = async () => {
+    if(!usuario) return;
+    await logEmail("recordatorio",usuario.email,usuario.nombre,`Rehab Home | ${usuario.especialidad} | Recordatorio: Evoluciones pendientes`,"enviado");
     setReminderSent(true);
   };
 
