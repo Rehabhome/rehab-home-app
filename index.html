@@ -7,9 +7,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalhone/7.23.2/babel.min.js"></script>
+ <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:system-ui,sans-serif;background:#F8FAFB;color:#1a1a2e}
+  body{font-family:system-ui,sans-serif;background:#F8FAFB;hcolor:#1a1a2e}
   @keyframes spin{to{transform:rotate(360deg)}}
 
   @media print {
@@ -366,8 +367,107 @@ const CAMPOS_FORM = Object.fromEntries(
     }))
   ])
 );
+/* Genera el PDF del informe y retorna su contenido en base64 */
+function generarPdfBase64(campos, form, paciente, tipoLabel, profesional) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const PAGE_W = 210;
+  const MARGIN = 18;
+  const TEXT_W = PAGE_W - MARGIN * 2;
+  const TEAL = [28, 134, 158];
+  const DARK = [31, 45, 61];
+  const SLATE = [100, 116, 139];
+  const HAIR = [230, 237, 240];
+  let y = 15;
+  doc.setFillColor(...TEAL);
+  doc.rect(0, 0, PAGE_W, 28, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(20);
+  doc.setFont('helvetica', 'bold');
+  doc.text('RehabHome', MARGIN, y + 6);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Documento Clinico', MARGIN, y + 13);
+  y = 38;
+  const infoRows = [
+    ['Paciente', paciente?.nombre || '-'],
+    ['Tipo de informe', tipoLabel || '-'],
+    ['Fecha', form.fecha || '-'],
+    ['Profesional', profesional?.nombre || '-'],
+  ];
+  infoRows.forEach(([lbl, val]) => {
+    doc.setFillColor(...HAIR);
+    doc.rect(MARGIN, y - 4.5, 52, 8, 'F');
+    doc.setTextColor(...SLATE);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text(lbl.toUpperCase(), MARGIN + 2, y);
+    doc.setTextColor(...DARK);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    const safeVal = String(val).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x00-\x7F]/g, '?');
+    doc.text(safeVal, MARGIN + 56, y);
+    y += 10;
+  });
+  y += 4;
+  doc.setTextColor(...TEAL);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('CONTENIDO DEL INFORME', MARGIN, y);
+  doc.setDrawColor(...TEAL);
+  doc.line(MARGIN, y + 1.5, PAGE_W - MARGIN, y + 1.5);
+  y += 8;
+  const filled = campos.filter(c =>
+    form[c.key] !== undefined && form[c.key] !== null && String(form[c.key]).trim() !== ''
+  );
+  if (filled.length === 0) {
+    doc.setTextColor(...SLATE);
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(10);
+    doc.text('Sin contenido adicional.', MARGIN, y);
+    y += 8;
+  }
+  filled.forEach(c => {
+    if (y > 260) { doc.addPage(); y = 20; }
+    doc.setFillColor(...HAIR);
+    doc.rect(MARGIN, y - 4.5, TEXT_W, 7, 'F');
+    doc.setTextColor(...SLATE);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    const safeLabel = String(c.label).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x00-\x7F]/g, '?').toUpperCase();
+    doc.text(safeLabel, MARGIN + 2, y);
+    y += 8;
+    const rawVal = form[c.key];
+    let txt = '';
+    if (Array.isArray(rawVal)) {
+      txt = rawVal.map(item => (typeof item === 'object' ? (item.texto || JSON.stringify(item)) : String(item))).join('\n');
+    } else {
+      txt = String(rawVal);
+    }
+    const safeTxt = txt.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x00-\x7F]/g, '?');
+    doc.setTextColor(...DARK);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    const lines = doc.splitTextToSize(safeTxt, TEXT_W - 4);
+    lines.forEach(line => {
+      if (y > 272) { doc.addPage(); y = 20; }
+      doc.text(line, MARGIN + 2, y);
+      y += 6;
+    });
+    y += 4;
+  });
+  const footerY = 285;
+  doc.setDrawColor(...HAIR);
+  doc.line(MARGIN, footerY - 4, PAGE_W - MARGIN, footerY - 4);
+  doc.setTextColor(...SLATE);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.text('RehabHome · rehabhome.cl · Para consultas, responda este correo.', MARGIN, footerY);
+  return doc.output('datauristring').split(',')[1];
+}
 
-function FormularioInforme({ tipo, tipoLabel, paciente, profesional, onGuardado, onCancelar }) {
+ 
+function FormularioInforme({ tipo, tipoLabel, paciente, profesionhal, onGuardado, onCancelar }) {
   const campos = CAMPOS_FORM[tipo] || [];
   const [form, setForm] = React.useState({ fecha: HOY });
   const [saving, setSaving] = React.useState(false);
@@ -400,6 +500,9 @@ function FormularioInforme({ tipo, tipoLabel, paciente, profesional, onGuardado,
           const camposEmail = campos
             .filter(c => form[c.key] !== undefined && form[c.key] !== null && String(form[c.key]).trim() !== '')
             .map(c => ({ label: c.label, value: form[c.key] }));
+          let pdfBase64 = null;
+          try { pdfBase64 = generarPdfBase64(campos, form, paciente, tipoLabel, profesional); }
+          catch(pdfErr) { console.warn('PDF no generado:', pdfErr); }
           await fetch('/.netlify/functions/send-email', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -410,6 +513,8 @@ function FormularioInforme({ tipo, tipoLabel, paciente, profesional, onGuardado,
               fecha: form.fecha || HOY,
               profesional_nombre: profesional?.nombre || '',
               campos: camposEmail,
+              pdfBase64,
+              pdfName: `informe-${tipo}-${form.fecha || HOY}.pdf`,
             }),
           });
         } catch(emailErr) {
