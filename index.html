@@ -987,12 +987,17 @@ function App() {
     setGuardado(true); setEmailStatus("ok");
     await logEmail("evolucion",pacienteActivo.email,pacienteActivo.nombre,`Rehab Home | ${prof?prof.especialidad:""} | Evolución de su atención - ${pacienteActivo.fecha}`,"enviado");
     // Enviar email al paciente con PDF de la evolucion via Netlify + Brevo
-    if (EMAIL_ENABLED && pacienteActivo?.email) {
+    if (!EMAIL_ENABLED) {
+      setEmailStatus('email-deshabilitado');
+    } else if (!pacienteActivo?.email) {
+      setEmailStatus('sin-email-paciente');
+    } else {
+      setEmailStatus('enviando');
       try {
         let pdfEvo = null;
         try { pdfEvo = generarPdfEvolucion(form, pacienteActivo, prof); } catch(pe) { console.warn('PDF evo:', pe); }
         const nomPac = (pacienteActivo.nombre||'').replace(/[^a-zA-Z0-9]/g,'-');
-        await fetch('/.netlify/functions/send-email', {
+        const resp = await fetch('/.netlify/functions/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1002,12 +1007,13 @@ function App() {
             fecha: pacienteActivo.fecha,
             hora: pacienteActivo.hora || '',
             profesional_nombre: prof?.nombre || '',
-            subject: ('atencion-' + (pacienteActivo.nombre||'') + '-' + (pacienteActivo.fecha||'') + (pacienteActivo.hora ? ' '+pacienteActivo.hora : '')).trim(),
+            subject: ('atencion-'+(pacienteActivo.nombre||'')+'-'+(pacienteActivo.fecha||'')+(pacienteActivo.hora?' '+pacienteActivo.hora:'')).trim(),
             pdfBase64: pdfEvo,
             pdfName: ('atencion-'+nomPac+'-'+(pacienteActivo.fecha||HOY)+'.pdf'),
           }),
         });
-      } catch(evoEmailErr) { console.warn('Email evolucion no enviado:', evoEmailErr); }
+        if (resp.ok) { setEmailStatus('ok'); } else { setEmailStatus('error-send-'+(await resp.text()).substring(0,40)); }
+      } catch(evoEmailErr) { setEmailStatus('error-'+evoEmailErr.message?.substring(0,40)); }
     }
   };
 
