@@ -19,7 +19,7 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: 'Body invalido' }) };
   }
 
-  const { to, paciente_nombre, tipo_informe, fecha, profesional_nombre, campos, pdfBase64, pdfName } = payload;
+  const { to, paciente_nombre, tipo_informe, fecha, hora, profesional_nombre, campos, pdfBase64, pdfName, subject: subjectOverride } = payload;
   if (!to) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Falta email del paciente' }) };
   }
@@ -60,7 +60,7 @@ exports.handler = async (event) => {
   const brevoPayload = {
     sender: { name: 'RehabHome', email: 'coordinacionrehabhome@gmail.com' },
     to: [{ email: to, name: paciente_nombre || '' }],
-    subject: `Informe clinico - ${tipo_informe}`,
+    subject: subjectOverride || `atencion-${paciente_nombre}-${fecha || ''}${hora ? ' '+hora : ''}`.trim(),
     htmlContent: html,
   };
   if (pdfBase64) {
