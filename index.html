@@ -467,7 +467,7 @@ function generarPdfBase64(campos, form, paciente, tipoLabel, profesional) {
 }
 
  
-function FormularioInforme({ tipo, tipoLabel, paciente, profesionhal, onGuardado, onCancelar }) {
+function FormularioInforme({ tipo, tipoLabel, paciente, profesional, onGuardado, onCancelar }) {
   const campos = CAMPOS_FORM[tipo] || [];
   const [form, setForm] = React.useState({ fecha: HOY });
   const [saving, setSaving] = React.useState(false);
