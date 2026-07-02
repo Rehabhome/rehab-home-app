@@ -1164,7 +1164,9 @@ function App() {
                   <div style={{fontSize:14,fontWeight:700,color:usuario.color,minWidth:44,cursor:"pointer"}} onClick={()=>openAtencion(p)}>{p.hora}</div>
                   <div style={{flex:1,cursor:"pointer"}} onClick={()=>openAtencion(p)}>
                     <div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div>
-                    <div style={{fontSize:12,color:"#6B7280"}}>{p.rut}{p.comuna?` · ${p.comuna}`:""}</div>
+                    <div style={{fontSize:12,color:"#6B7280"}}>{p.rut}{p.edad?` · ${p.edad} años`:""}{p.telefono?` · ${p.telefono}`:""}</div>
+                    <div style={{fontSize:12,color:"#6B7280"}}>{p.direccion}{p.comuna?`, ${p.comuna}`:""}</div>
+                    {p.diagnostico && <div style={{fontSize:11,color:"#9CA3AF"}}>Dx: {p.diagnostico}</div>}
                     {filtroPac && <div style={{fontSize:11,color:"#9CA3AF"}}>{p.fecha} · {p.hora}</div>}
                   </div>
                   <span style={s.badge(hecho?"#D4EDDA":"#FFF3CD",hecho?"#155724":"#856404")}>{hecho?"Completada":"Pendiente"}</span>
