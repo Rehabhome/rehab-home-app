@@ -924,7 +924,7 @@ function App() {
   const [showNewProf,setShowNewProf] = useState(false);
   const [showNewPac,setShowNewPac] = useState(false);
   const [newProf,setNewProf] = useState({nombre:"",especialidad:"Kinesiología",rut:"",email:"",color:COLORES[0]});
-  const [newPac,setNewPac] = useState({nombre:"",rut:"",direccion:"",comuna:"",email:"",profesionalId:"",hora:"",fecha:HOY,servicios:[]});
+  const [newPac,setNewPac] = useState({nombre:"",rut:"",edad:"",telefono:"",diagnostico:"",direccion:"",comuna:"",email:"",profesionalId:"",hora:"",fecha:HOY});
   const [pendingAlert,setPendingAlert] = useState(false);
   const [reminderSent,setReminderSent] = useState(false);
   const [vistaHistorial,setVistaHistorial] = useState(false);
@@ -1200,7 +1200,12 @@ function App() {
         </div>
         <div style={s.section}>
           <div style={{background:"#F0F9F5",border:"1px solid #9FE1CB",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:13}}>
+            <div><span style={{fontWeight:600}}>Nombre:</span> {pacienteActivo.nombre}</div>
+            <div><span style={{fontWeight:600}}>Edad:</span> {pacienteActivo.edad||"-"}</div>
+            <div><span style={{fontWeight:600}}>RUT:</span> {pacienteActivo.rut}</div>
+            <div><span style={{fontWeight:600}}>Teléfono:</span> {pacienteActivo.telefono||"-"}</div>
             <div><span style={{fontWeight:600}}>Dirección:</span> {pacienteActivo.direccion}{pacienteActivo.comuna?`, ${pacienteActivo.comuna}`:""}</div>
+            <div><span style={{fontWeight:600}}>Diagnóstico:</span> {pacienteActivo.diagnostico||"-"}</div>
             <div><span style={{fontWeight:600}}>Email:</span> {pacienteActivo.email}</div>
           </div>
           {vistaInformes ? (
@@ -1348,13 +1353,13 @@ function App() {
               <div style={{...s.card,padding:16,marginBottom:14,background:"#F0FDF4"}}>
                 <p style={{fontWeight:600,fontSize:14,margin:"0 0 12px"}}>Nuevo paciente</p>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                  {[["nombre","Nombre"],["rut","RUT"],["email","Email"],["direccion","Dirección"],["hora","Hora"],["fecha","Fecha"]].map(([k,lbl])=>(<div key={k}><label style={s.label}>{lbl}</label><input style={s.input} value={newPac[k]} onChange={e=>setNewPac(f=>({...f,[k]:e.target.value}))}/></div>))}
+                  {[["nombre","Nombre"],["rut","RUT"],["edad","Edad"],["telefono","Teléfono"],["email","Email"],["direccion","Dirección"],["diagnostico","Diagnóstico"],["hora","Hora"],["fecha","Fecha"]].map(([k,lbl])=>(<div key={k}><label style={s.label}>{lbl}</label><input style={s.input} value={newPac[k]} onChange={e=>setNewPac(f=>({...f,[k]:e.target.value}))}/></div>))}
                   <div><label style={s.label}>Comuna</label><select style={s.input} value={newPac.comuna} onChange={e=>setNewPac(f=>({...f,comuna:e.target.value}))}><option value="">Seleccionar...</option>{COMUNAS.map(c=><option key={c}>{c}</option>)}</select></div>
                   <div><label style={s.label}>Profesional</label><select style={s.input} value={newPac.profesionalId} onChange={e=>setNewPac(f=>({...f,profesionalId:e.target.value}))}><option value="">Seleccionar...</option>{profesionales.filter(p=>p.activo).map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div>
                   <div style={{gridColumn:"1/-1"}}><label style={s.label}>Servicios</label><div style={{display:"flex",gap:16,flexWrap:"wrap",marginTop:4}}>{[["kinesiologia","Kinesiología"],["fonoaudiologia","Fonoaudiología"],["terapia_ocupacional","Terapia Ocupacional"]].map(([sv,lbl])=>(<label key={sv} style={{fontSize:13,display:"flex",alignItems:"center",gap:4,cursor:"pointer"}}><input type="checkbox" checked={(newPac.servicios||[]).includes(sv)} onChange={e=>setNewPac(f=>({...f,servicios:e.target.checked?[...(f.servicios||[]),sv]:(f.servicios||[]).filter(x=>x!==sv)}))}/>{lbl}</label>))}</div></div>
                 </div>
                 <div style={{display:"flex",gap:8,marginTop:12}}>
-                  <button style={s.btn("#1a6b8a")} onClick={async()=>{ if(!newPac.nombre||!newPac.rut||!newPac.email||!newPac.profesionalId)return; const row=await db.post("pacientes",{nombre:newPac.nombre,rut:newPac.rut,email:newPac.email,direccion:newPac.direccion,comuna:newPac.comuna,hora:newPac.hora,fecha:newPac.fecha,profesional_id:newPac.profesionalId,servicios:newPac.servicios||[]}); if(Array.isArray(row)&&row[0])setPacientes(prev=>[...prev,row[0]]); setNewPac({nombre:"",rut:"",direccion:"",comuna:"",email:"",profesionalId:"",hora:"",fecha:HOY,servicios:[]});setShowNewPac(false); }}>Guardar</button>
+                  <button style={s.btn("#1a6b8a")} onClick={async()=>{ if(!newPac.nombre||!newPac.rut||!newPac.email||!newPac.profesionalId)return; const row=await db.post("pacientes",{nombre:newPac.nombre,rut:newPac.rut,edad:newPac.edad,telefono:newPac.telefono,diagnostico:newPac.diagnostico,email:newPac.email,direccion:newPac.direccion,comuna:newPac.comuna,hora:newPac.hora,fecha:newPac.fecha,profesional_id:newPac.profesionalId,servicios:newPac.servicios||[]}); if(Array.isArray(row)&&row[0])setPacientes(prev=>[...prev,row[0]]); setNewPac({nombre:"",rut:"",edad:"",telefono:"",diagnostico:"",direccion:"",comuna:"",email:"",profesionalId:"",hora:"",fecha:HOY});setShowNewPac(false); }}>Guardar</button>
                   <button style={s.btnOutline} onClick={()=>setShowNewPac(false)}>Cancelar</button>
                 </div>
               </div>
@@ -1363,12 +1368,12 @@ function App() {
               <div style={{...s.card,padding:16,marginBottom:14,background:"#EFF6FF"}}>
                 <p style={{fontWeight:600,fontSize:14,margin:"0 0 12px"}}>Editar paciente</p>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                  {[["nombre","Nombre"],["rut","RUT"],["email","Email"],["direccion","Dirección"]].map(([k,lbl])=>(<div key={k}><label style={s.label}>{lbl}</label><input style={s.input} value={editingPac[k]||""} onChange={e=>setEditingPac(f=>({...f,[k]:e.target.value}))}/></div>))}
+                  {[["nombre","Nombre"],["rut","RUT"],["edad","Edad"],["telefono","Teléfono"],["email","Email"],["direccion","Dirección"],["diagnostico","Diagnóstico"]].map(([k,lbl])=>(<div key={k}><label style={s.label}>{lbl}</label><input style={s.input} value={editingPac[k]||""} onChange={e=>setEditingPac(f=>({...f,[k]:e.target.value}))}/></div>))}
                   <div><label style={s.label}>Comuna</label><select style={s.input} value={editingPac.comuna||""} onChange={e=>setEditingPac(f=>({...f,comuna:e.target.value}))}><option value="">Seleccionar...</option>{COMUNAS.map(c=><option key={c}>{c}</option>)}</select></div>
                   <div style={{gridColumn:"1/-1"}}><label style={s.label}>Servicios</label><div style={{display:"flex",gap:16,flexWrap:"wrap",marginTop:4}}>{[["kinesiologia","Kinesiología"],["fonoaudiologia","Fonoaudiología"],["terapia_ocupacional","Terapia Ocupacional"]].map(([sv,lbl])=>(<label key={sv} style={{fontSize:13,display:"flex",alignItems:"center",gap:4,cursor:"pointer"}}><input type="checkbox" checked={(editingPac.servicios||[]).includes(sv)} onChange={e=>setEditingPac(f=>({...f,servicios:e.target.checked?[...(f.servicios||[]),sv]:(f.servicios||[]).filter(x=>x!==sv)}))}/>{lbl}</label>))}</div></div>
                 </div>
                 <div style={{display:"flex",gap:8,marginTop:12}}>
-                  <button style={s.btn("#378ADD")} onClick={async()=>{ const row=await db.patch("pacientes",editingPac.id,{nombre:editingPac.nombre,rut:editingPac.rut,email:editingPac.email,direccion:editingPac.direccion,comuna:editingPac.comuna,servicios:editingPac.servicios||[]}); if(Array.isArray(row)&&row[0])setPacientes(prev=>prev.map(p=>p.id===editingPac.id?row[0]:p)); setEditingPac(null); }}>Guardar</button>
+                  <button style={s.btn("#378ADD")} onClick={async()=>{ const row=await db.patch("pacientes",editingPac.id,{nombre:editingPac.nombre,rut:editingPac.rut,edad:editingPac.edad,telefono:editingPac.telefono,diagnostico:editingPac.diagnostico,email:editingPac.email,direccion:editingPac.direccion,comuna:editingPac.comuna,servicios:editingPac.servicios||[]}); if(Array.isArray(row)&&row[0])setPacientes(prev=>prev.map(p=>p.id===editingPac.id?row[0]:p)); setEditingPac(null); }}>Guardar</button>
                   <button style={s.btnOutline} onClick={()=>setEditingPac(null)}>Cancelar</button>
                 </div>
               </div>
