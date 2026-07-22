@@ -1,1 +1,684 @@
-49	01-07-2026 00:00			JL			Luis San Martín Olmedo	4286678-4	31-08-1931	94	985490698	Moneda 2362	Santiago	PARKINSON	Fonoaudiología			Agendada	Gabriel Muñoz	1	20	03-07-2026	11:30	Agendada			$30.000	$21.000	sanmartin.alenka@gmail.com 
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Rehab Home</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,sans-serif;background:#F8FAFB;color:#1a1a2e}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+const SUPABASE_URL = "https://wpzwpfknranglhdzoywd.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndwendwZmtucmFuZ2xoZHpveXdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxOTA0MzcsImV4cCI6MjA5NDc2NjQzN30.09XtJ_DAm4PahYyy5aFUkpCeZgGWPn8PmOcjJQIDvVc";
+
+const db = {
+  get: async (table, params="") => {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
+      headers:{apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`}
+    });
+    return r.json();
+  },
+  post: async (table, body) => {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+      method:"POST",
+      headers:{apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`, "Content-Type":"application/json", Prefer:"return=representation"},
+      body:JSON.stringify(body)
+    });
+    return r.json();
+  },
+  patch: async (table, id, body) => {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+      method:"PATCH",
+      headers:{apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`, "Content-Type":"application/json", Prefer:"return=representation"},
+      body:JSON.stringify(body)
+    });
+    return r.json();
+  }
+};
+
+const ESPECIALIDADES = ["Kinesiología","Fonoaudiología","Terapia Ocupacional","Fisioterapia","Nutrición"];
+
+const COMUNAS = ["Aisén","Alba","Algarrobo","Alhué","Alto Biobío","Alto del Carmen","Alto Hospicio","Ancud","Andacollo","Antofagasta","Antuco","Arauco","Arica","Arrayan","Aysén","Buin","Bulnes","Cabildo","Cabo de Hornos","Calama","Calbuco","Caldera","Calera","Calera de Tango","Cañete","Carahue","Cartagena","Casablanca","Castro","Catemu","Cauquenes","Cazador","Cerrillos","Cerro Navia","Chaitén","Chanco","Chépica","Chiguayante","Chile Chico","Chillán","Chillán Viejo","Chimbarongo","Cholchol","Chonchi","Chusmiza","Cisnes","Cobquecura","Cochamó","Codegua","Coelemu","Coihaique","Coihueco","Colbún","Colchane","Colina","Collipulli","Coltauco","Combarbalá","Concepción","Conchalí","Confluencia","Constitución","Contulmo","Copiapó","Coquimbo","Coronel","Corral","Cunco","Curacautín","Curacaví","Curaco de Vélez","Curanilahue","Curarrehue","Curepto","Curicó","Dalcahue","Diego de Almagro","Doñihue","El Bosque","El Monte","El Quisco","El Tabo","Empedrado","Ercilla","Estación Central","Florida","Freirina","Fresia","Frutillar","Futaleufu","Futronó","Galvarino","General Lagos","Graneros","Guaitecas","Hijuelas","Hualaihué","Hualañé","Hualpén","Huara","Huasco","Huechuraba","Illapel","Independencia","Iquique","La Calera","La Cisterna","Florida","La Granja","La Higuera","La Ligua","La Pintana","La Reina","La Serena","La Unión","Lago Ranco","Lago Verde","Laguna Blanca","Laja","Lampa","Lanco","Las Cabras","Las Condes","Lautaro","Lebu","Licantén","Limache","Linares","Litueche","Llanquihue","Lo Barnechea","Lo Espejo","Lo Prado","Lolol","Loncoche","Longaví","Lonquimay","Los Álamos","Los Andes","Los Ángeles","Los Lagos","Los Muermos","Los Sauces","Los Vilos","Lota","Lumaco","Machalí","Macul","Maipú","Malloa","Marchihue","María Elena","María Pinto","Maule","Maullín","Mejillones","Melipeuco","Melipilla","Molina","Monte Patria","Mostazal","Mulchén","Nacimiento","Nancagua","Natales","Navidad","Negrete","Ninhue","Nogales","Nueva Imperial","Ñiquén","Ñuñoa","Ochagavía","Ojeda","Olivar","Olmué","Ovalle","Padre Hurtado","Padre las Casas","Paine","Palmilla","Panguipulli","Papudo","Parral","Pavez","Pelarco","Pelluhue","Pemuco","Peñaflor","Peñalolén","Peralillo","Perquenco","Petorca","Peumo","Pica","Pichidegua","Pichilemu","Pikún Mapu","Pirque","Pitrufquén","Placilla","Portezuelo","Porvenir","Pozo Almonte","Primavera","Providencia","Puchuncaví","Pudahuel","Puente Alto","Puerto Montt","Puerto Natales","Puerto Octay","Puerto Varas","Punta Arenas","Puqueldón","Purén","Purranque","Putaendo","Puyehue","Queilén","Quemchi","Quilaco","Quilicura","Quilleco","Quillón","Quillota","Quilpué","Quinchao","Quinta de Tilcoco","Quinta Normal","Quintero","Quirihue","Rancagua","Rauco","Recoleta","Renaico","Renca","Rengo","Requínoa","Retiro","Rinconada","Rio Bueno","Río Claro","Río Hurtado","Río Ibáñez","Río Negro","Río Verde","Romeral","Saavedra","San Antonio","San Bernardo","San Carlos","San Clemente","San Esteban","San Fabián","San Felipe","San Fernando","San Gregorio","San Ignacio","San Javier","San José de Maipo","San Juan de la Costa","San Miguel","San Nicolás","San Pablo","San Pedro","San Pedro de Atacama","San Pedro de la Paz","San Rafael","San Ramón","San Rosendo","San Vicente","Santa Bárbara","Santa Cruz","Santiago","Santo Domingo","Sierra Gorda","Talagante","Talca","Talcahuano","Taltal","Temuco","Teno","Timaukel","Tirúa","Tocopilla","Tomé","Torres del Paine","Tortel","Traiguén","Trehuaco","Tucapel","Valdivia","Valle Nevada","Vallenar","Valparaíso","Victoria","Vicuña","Vilcún","Villa Alegre","Villa Alemana","Villarrica","Viña del Mar","Vitacura","Yerbas Buenas","Yumbel","Yungay","Zapallar"].sort();
+const COLORES = ["#1D9E75","#378ADD","#7F77DD","#D85A30","#D4537E"];
+const HOY = new Date().toISOString().split("T")[0];
+
+const getRutLogin = r => r.replace(/[.\-]/g,"").toUpperCase();
+const getPassword = r => getRutLogin(r).slice(0,5);
+
+const s = {
+  app:{fontFamily:"system-ui,sans-serif",minHeight:"100vh",background:"#F8FAFB",color:"#1a1a2e"},
+  header:{background:"#fff",borderBottom:"1px solid #E5E7EB",padding:"12px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"},
+  headerTitle:{fontSize:15,fontWeight:600,color:"#1a1a2e",margin:0},
+  headerSub:{fontSize:12,color:"#6B7280",margin:0},
+  card:{background:"#fff",border:"1px solid #E5E7EB",borderRadius:12,overflow:"hidden",marginBottom:10},
+  btn:c=>({background:c,color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:13,fontWeight:500}),
+  btnOutline:{background:"transparent",color:"#6B7280",border:"1px solid #E5E7EB",borderRadius:8,padding:"7px 14px",cursor:"pointer",fontSize:13},
+  btnDanger:{background:"transparent",color:"#A32D2D",border:"1px solid #F7C1C1",borderRadius:8,padding:"7px 14px",cursor:"pointer",fontSize:13},
+  btnSuccess:{background:"transparent",color:"#155724",border:"1px solid #9FE1CB",borderRadius:8,padding:"7px 14px",cursor:"pointer",fontSize:13},
+  input:{width:"100%",border:"1px solid #E5E7EB",borderRadius:8,padding:"8px 10px",fontSize:13,boxSizing:"border-box",fontFamily:"inherit",color:"#1a1a2e"},
+  textarea:{width:"100%",border:"1px solid #E5E7EB",borderRadius:8,padding:10,fontSize:13,fontFamily:"inherit",resize:"vertical",minHeight:75,boxSizing:"border-box",color:"#1a1a2e"},
+  label:{fontSize:11,fontWeight:600,color:"#6B7280",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4,display:"block"},
+  badge:(bg,color)=>({display:"inline-block",padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:500,background:bg,color}),
+  tab:a=>({padding:"8px 16px",cursor:"pointer",fontSize:13,fontWeight:a?600:400,color:a?"#1a6b8a":"#6B7280",background:"none",border:"none",borderBottom:a?"2px solid #1a6b8a":"2px solid transparent"}),
+  section:{padding:"16px 20px"},
+};
+
+const LogoSVG = ({size=80}) => (
+  <svg viewBox="0 0 80 80" width={size} height={size}>
+    <rect width="80" height="80" rx={size>40?16:8} fill="#1a6b8a"/>
+    <polygon points="40,12 68,35 68,68 12,68 12,35" fill="none" stroke="white" strokeWidth="2.5"/>
+    <circle cx="28" cy="36" r="4" fill="#3dbf9e"/><rect x="25" y="40" width="6" height="12" rx="1" fill="#3dbf9e"/>
+    <circle cx="40" cy="33" r="5" fill="white"/><rect x="37" y="38" width="6" height="14" rx="1" fill="white"/>
+    <circle cx="52" cy="34" r="4" fill="#3dbf9e"/><rect x="49" y="38" width="6" height="13" rx="1" fill="#3dbf9e"/>
+    <line x1="55" y1="36" x2="55" y2="42" stroke="#e74c3c" strokeWidth="2"/>
+    <line x1="52" y1="39" x2="58" y2="39" stroke="#e74c3c" strokeWidth="2"/>
+    <path d="M18,70 Q40,62 62,70" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+  </svg>
+);
+
+const Spinner = () => (
+  <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:300}}>
+    <div style={{textAlign:"center"}}>
+      <div style={{width:36,height:36,border:"3px solid #E5E7EB",borderTop:"3px solid #1a6b8a",borderRadius:"50%",animation:"spin 0.8s linear infinite",margin:"0 auto 12px"}}/>
+      <p style={{fontSize:13,color:"#6B7280"}}>Conectando con Rehab Home...</p>
+    </div>
+  </div>
+);
+
+function generarPDF(pac, evo, prof) {
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Evolución</title>
+  <style>body{font-family:Arial,sans-serif;margin:40px;color:#1a1a2e;font-size:13px}.logo{font-size:20px;font-weight:700;color:#1a6b8a}h2{color:#1a6b8a;border-bottom:1px solid #eee;padding-bottom:6px;margin:20px 0 10px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}.fl label{font-size:10px;font-weight:700;color:#6B7280;text-transform:uppercase;display:block;margin-bottom:3px}.fl p{margin:0;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:6px;padding:8px}.box{background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:12px;margin-bottom:12px}.box label{font-size:10px;font-weight:700;color:#6B7280;text-transform:uppercase;display:block;margin-bottom:6px}.box p{margin:0;line-height:1.6}.footer{margin-top:40px;border-top:1px solid #eee;padding-top:12px;font-size:11px;color:#9CA3AF;display:flex;justify-content:space-between}</style>
+  </head><body>
+  <div style="border-bottom:2px solid #1a6b8a;padding-bottom:16px;margin-bottom:24px;display:flex;justify-content:space-between">
+    <div><div class="logo">REHAB HOME</div><div style="font-size:11px;color:#6B7280">Registro clínico</div></div>
+    <div style="text-align:right;font-size:12px;color:#6B7280">${evo.fecha} · ${evo.hora}${(pac.sesion_numero||pac.sesiones_total)?` · Sesión ${pac.sesion_numero||"?"}/${pac.sesiones_total||"?"}`:""}</div>
+  </div>
+  <h2>Datos del paciente</h2>
+  <div class="grid">
+    <div class="fl"><label>Nombre</label><p>${pac.nombre}</p></div>
+    <div class="fl"><label>RUT</label><p>${pac.rut}</p></div>
+    <div class="fl"><label>Dirección</label><p>${pac.direccion}${pac.comuna?`, ${pac.comuna}`:""}</p></div>
+    <div class="fl"><label>Email</label><p>${pac.email}</p></div>
+    ${pac.diagnostico?`<div class="fl" style="grid-column:1/-1"><label>Diagnóstico</label><p>${pac.diagnostico}</p></div>`:""}
+  </div>
+  <h2>Profesional</h2>
+  <div class="grid"><div class="fl"><label>Nombre</label><p>${prof?prof.nombre:"-"}</p></div><div class="fl"><label>Especialidad</label><p>${prof?prof.especialidad:"-"}</p></div></div>
+  <h2>Evolución</h2>
+  <div class="box"><label>Anamnesis</label><p>${evo.anamnesis}</p></div>
+  <div class="box"><label>Procedimientos</label><p>${evo.procedimientos}</p></div>
+  <div class="box"><label>Post sesión</label><p>${evo.post_sesion}</p></div>
+  <div class="footer"><span>Rehab Home · ${new Date().toLocaleDateString("es-CL")}</span><span>${prof?prof.nombre:""}</span></div>
+  </body></html>`;
+  const w = window.open("","_blank");
+  w.document.write(html);
+  w.document.close();
+  setTimeout(()=>w.print(),500);
+}
+
+const SesionBadge = ({p}) => (p.sesion_numero||p.sesiones_total) ? (
+  <span style={{fontSize:11,background:"#E6F1FB",color:"#185FA5",borderRadius:10,padding:"1px 8px",fontWeight:600,whiteSpace:"nowrap"}}>
+    S{p.sesion_numero||"?"}/{p.sesiones_total||"?"}
+  </span>
+) : null;
+
+function App() {
+  const [profesionales,setProfesionales] = useState([]);
+  const [pacientes,setPacientes] = useState([]);
+  const [evoluciones,setEvoluciones] = useState([]);
+  const [emailLog,setEmailLog] = useState([]);
+  const [loading,setLoading] = useState(true);
+  const [dbError,setDbError] = useState(null);
+  const [vista,setVista] = useState("login");
+  const [usuario,setUsuario] = useState(null);
+  const [rol,setRol] = useState(null);
+  const [loginForm,setLoginForm] = useState({usuario:"",password:""});
+  const [loginError,setLoginError] = useState("");
+  const [pacienteActivo,setPacienteActivo] = useState(null);
+  const [form,setForm] = useState({anamnesis:"",procedimientos:"",postSesion:""});
+  const [guardado,setGuardado] = useState(false);
+  const [emailStatus,setEmailStatus] = useState(null);
+  const [adminTab,setAdminTab] = useState("agenda");
+  const [adminProf,setAdminProf] = useState(null);
+  const [showNewProf,setShowNewProf] = useState(false);
+  const [showNewPac,setShowNewPac] = useState(false);
+  const [newProf,setNewProf] = useState({nombre:"",especialidad:"Kinesiología",rut:"",email:"",color:COLORES[0]});
+  const [newPac,setNewPac] = useState({nombre:"",rut:"",direccion:"",comuna:"",email:"",profesionalId:"",hora:"",fecha:HOY,diagnostico:"",sesion_numero:1,sesiones_total:""});
+  const [pendingAlert,setPendingAlert] = useState(false);
+  const [reminderSent,setReminderSent] = useState(false);
+  const [vistaHistorial,setVistaHistorial] = useState(false);
+  const [editingPac,setEditingPac] = useState(null);
+  const [emailFilter,setEmailFilter] = useState("todos");
+  const [fechaSel,setFechaSel] = useState(HOY);
+  const [filtroPac,setFiltroPac] = useState("");
+  const [reagendando,setReagendando] = useState(null);
+  const [reagendaForm,setReagendaForm] = useState({fecha:"",hora:"",profesionalId:"",motivo:""});
+  const [reagendaOk,setReagendaOk] = useState(false);
+
+  const getPxProf = (profId,fecha) => pacientes.filter(p=>p.profesional_id===profId&&(fecha?p.fecha===fecha:true)).sort((a,b)=>a.hora.localeCompare(b.hora));
+  const getEvo = pacId => evoluciones.find(e=>e.paciente_id===pacId);
+  const getPend = (profId,fecha) => getPxProf(profId,fecha).filter(p=>!getEvo(p.id));
+
+  const loadAll = async () => {
+    setLoading(true); setDbError(null);
+    try {
+      const [pr,pa,ev,em] = await Promise.all([
+        db.get("profesionales","order=nombre"),
+        db.get("pacientes","order=hora"),
+        db.get("evoluciones","order=created_at.desc"),
+        db.get("email_log","order=created_at.desc"),
+      ]);
+      if (!Array.isArray(pr)) throw new Error(JSON.stringify(pr));
+      setProfesionales(pr); setPacientes(Array.isArray(pa)?pa:[]);
+      setEvoluciones(Array.isArray(ev)?ev:[]); setEmailLog(Array.isArray(em)?em:[]);
+    } catch(e) { setDbError("Error de conexión: "+e.message); }
+    setLoading(false);
+  };
+
+  useEffect(()=>{ loadAll(); },[]);
+  useEffect(()=>{ if(rol==="profesional"&&usuario&&getPend(usuario.id,HOY).length>0) setPendingAlert(true); },[rol,usuario,pacientes,evoluciones]);
+
+  const handleLogin = () => {
+    if(loginForm.usuario.trim()==="admin"&&loginForm.password==="admin2026"){ setRol("admin");setUsuario(null);setVista("admin");setLoginError("");return; }
+    const rn = loginForm.usuario.replace(/[.\-]/g,"").toUpperCase();
+    const prof = profesionales.find(p=>getRutLogin(p.rut)===rn&&p.activo);
+    if(prof&&loginForm.password===getPassword(prof.rut)){ setRol("profesional");setUsuario(prof);setVista("agenda");setLoginError("");return; }
+    setLoginError("RUT o contraseña incorrectos");
+  };
+
+  const handleLogout = () => { setRol(null);setUsuario(null);setVista("login");setLoginForm({usuario:"",password:""});setPendingAlert(false);setReminderSent(false); };
+
+  const logEmail = async (tipo,dest,pacNom,asunto,estado) => {
+    const now = new Date();
+    const hora = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+    const row = await db.post("email_log",{tipo,destinatario:dest,paciente:pacNom,asunto,estado,fecha:HOY,hora});
+    if(Array.isArray(row)&&row[0]) setEmailLog(prev=>[row[0],...prev]);
+  };
+
+  const handleGuardar = async () => {
+    const prof = profesionales.find(p=>p.id===pacienteActivo.profesional_id);
+    const evoData = {paciente_id:pacienteActivo.id,anamnesis:form.anamnesis,procedimientos:form.procedimientos,post_sesion:form.postSesion,fecha:pacienteActivo.fecha,hora:pacienteActivo.hora};
+    const existing = getEvo(pacienteActivo.id);
+    let saved;
+    if(existing){ saved=await db.patch("evoluciones",existing.id,evoData); if(Array.isArray(saved)&&saved[0]) setEvoluciones(prev=>prev.map(e=>e.id===existing.id?saved[0]:e)); }
+    else { saved=await db.post("evoluciones",evoData); if(Array.isArray(saved)&&saved[0]) setEvoluciones(prev=>[saved[0],...prev]); }
+    setGuardado(true); setEmailStatus("ok");
+    await logEmail("evolucion",pacienteActivo.email,pacienteActivo.nombre,`Rehab Home | ${prof?prof.especialidad:""} | Evolución de su atención - ${pacienteActivo.fecha}`,"enviado");
+  };
+
+  const handleReminder = async () => {
+    if(!usuario) return;
+    const pend = getPend(usuario.id,HOY);
+    await logEmail("recordatorio",usuario.email,usuario.nombre,`Rehab Home | ${usuario.especialidad} | Recordatorio: Evoluciones pendientes`,"enviado");
+    setReminderSent(true);
+  };
+
+  const handleReagendar = async () => {
+    if(!reagendaForm.fecha||!reagendaForm.hora||!reagendaForm.profesionalId) return;
+    const row = await db.patch("pacientes",reagendando.id,{fecha:reagendaForm.fecha,hora:reagendaForm.hora,profesional_id:reagendaForm.profesionalId});
+    if(Array.isArray(row)&&row[0]) setPacientes(prev=>prev.map(p=>p.id===reagendando.id?row[0]:p));
+    const prof = profesionales.find(pr=>pr.id===reagendaForm.profesionalId);
+    await logEmail("reagendamiento",reagendando.email,reagendando.nombre,`Rehab Home | ${prof?prof.especialidad:""} | Reagendamiento de sesión`,"enviado");
+    setReagendaOk(true);
+    setTimeout(()=>{ setReagendando(null);setReagendaOk(false); },1800);
+  };
+
+  const openReagendar = p => { setReagendando(p);setReagendaForm({fecha:p.fecha,hora:p.hora,profesionalId:p.profesional_id,motivo:""}); };
+  const openAtencion = p => {
+    setPacienteActivo(p);setVistaHistorial(false);
+    const evo=getEvo(p.id);
+    setForm(evo?{anamnesis:evo.anamnesis,procedimientos:evo.procedimientos,postSesion:evo.post_sesion}:{anamnesis:"",procedimientos:"",postSesion:""});
+    setGuardado(false);setEmailStatus(null);setVista("atencion");
+  };
+
+  const ModalReagendar = () => !reagendando ? null : (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100}}>
+      <div style={{background:"#fff",borderRadius:16,padding:24,width:340}}>
+        {reagendaOk ? (
+          <div style={{textAlign:"center",padding:"20px 0"}}>
+            <div style={{fontSize:36,marginBottom:10}}>✅</div>
+            <div style={{fontWeight:600,fontSize:15,color:"#155724"}}>Sesión reagendada</div>
+          </div>
+        ) : (<>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+            <div><p style={{fontWeight:600,fontSize:15,margin:0}}>Reagendar sesión</p><p style={{fontSize:12,color:"#6B7280",margin:0}}>{reagendando.nombre}</p></div>
+            <button onClick={()=>setReagendando(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,color:"#9CA3AF"}}>×</button>
+          </div>
+          <div style={{background:"#FFF3CD",borderRadius:8,padding:"8px 12px",marginBottom:14,fontSize:12,color:"#856404"}}>Actual: <strong>{reagendando.fecha}</strong> · <strong>{reagendando.hora}</strong></div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+            <div><label style={s.label}>Nueva fecha</label><input type="date" style={s.input} value={reagendaForm.fecha} onChange={e=>setReagendaForm(f=>({...f,fecha:e.target.value}))}/></div>
+            <div><label style={s.label}>Nueva hora</label><input type="time" style={s.input} value={reagendaForm.hora} onChange={e=>setReagendaForm(f=>({...f,hora:e.target.value}))}/></div>
+          </div>
+          <div style={{marginBottom:10}}><label style={s.label}>Profesional</label>
+            <select style={s.input} value={reagendaForm.profesionalId} onChange={e=>setReagendaForm(f=>({...f,profesionalId:e.target.value}))}>
+              <option value="">Seleccionar...</option>
+              {profesionales.filter(p=>p.activo).map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}
+            </select>
+          </div>
+          <div style={{marginBottom:16}}><label style={s.label}>Motivo</label><textarea style={{...s.textarea,minHeight:60}} value={reagendaForm.motivo} onChange={e=>setReagendaForm(f=>({...f,motivo:e.target.value}))} placeholder="Ej: Solicitud del paciente..."/></div>
+          <div style={{display:"flex",gap:8}}>
+            <button style={{...s.btn("#1a6b8a"),flex:1}} onClick={handleReagendar}>Confirmar</button>
+            <button style={s.btnOutline} onClick={()=>setReagendando(null)}>Cancelar</button>
+          </div>
+        </>)}
+      </div>
+    </div>
+  );
+
+  if(loading) return <div style={s.app}><Spinner/></div>;
+
+  if(dbError) return (
+    <div style={{...s.app,display:"flex",alignItems:"center",justifyContent:"center",minHeight:400}}>
+      <div style={{textAlign:"center",maxWidth:360,padding:20}}>
+        <div style={{fontSize:32,marginBottom:12}}>⚠️</div>
+        <p style={{fontWeight:600,color:"#A32D2D",marginBottom:8}}>{dbError}</p>
+        <p style={{fontSize:12,color:"#6B7280",marginBottom:16}}>Verifica que las tablas estén creadas en Supabase.</p>
+        <button style={s.btn("#1a6b8a")} onClick={loadAll}>Reintentar conexión</button>
+      </div>
+    </div>
+  );
+
+  if(vista==="login") return (
+    <div style={{...s.app,display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh"}}>
+      <div style={{width:320}}>
+        <div style={{textAlign:"center",marginBottom:24}}>
+          <div style={{display:"inline-block",marginBottom:10}}><LogoSVG size={80}/></div>
+          <h1 style={{fontSize:20,fontWeight:700,margin:"0 0 4px",color:"#1a6b8a"}}>REHAB HOME</h1>
+          <p style={{fontSize:13,color:"#6B7280"}}>Ingresa con tus credenciales</p>
+        </div>
+        <div style={{...s.card,padding:20}}>
+          <div style={{marginBottom:12}}><label style={s.label}>RUT (o "admin")</label><input style={s.input} placeholder="12345678-9" value={loginForm.usuario} onChange={e=>setLoginForm(f=>({...f,usuario:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&handleLogin()}/></div>
+          <div style={{marginBottom:16}}><label style={s.label}>Contraseña</label><input type="password" style={s.input} placeholder="••••••" value={loginForm.password} onChange={e=>setLoginForm(f=>({...f,password:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&handleLogin()}/></div>
+          {loginError && <div style={{fontSize:12,color:"#A32D2D",background:"#FCEBEB",borderRadius:6,padding:"6px 10px",marginBottom:12}}>{loginError}</div>}
+          <button style={{...s.btn("#1a6b8a"),width:"100%",padding:10}} onClick={handleLogin}>Ingresar</button>
+        </div>
+        <p style={{fontSize:11,color:"#9CA3AF",textAlign:"center",marginTop:12,lineHeight:1.6}}>Profesionales: RUT sin puntos · clave = 5 primeros dígitos<br/>Admin: admin / admin2026</p>
+      </div>
+    </div>
+  );
+
+  if(vista==="agenda"&&rol==="profesional") {
+    const lista = getPxProf(usuario.id,fechaSel);
+    const pend = getPend(usuario.id,fechaSel);
+    const esHoy = fechaSel===HOY;
+    const fechaLabel = esHoy?"Hoy":new Date(fechaSel+"T00:00:00").toLocaleDateString("es-CL",{weekday:"long",day:"numeric",month:"long"});
+    const irDia = offset => { const d=new Date(fechaSel+"T00:00:00");d.setDate(d.getDate()+offset);setFechaSel(d.toISOString().split("T")[0]); };
+    const listaF = filtroPac.trim() ? getPxProf(usuario.id,null).filter(p=>p.nombre.toLowerCase().includes(filtroPac.toLowerCase())||p.rut.includes(filtroPac)) : lista;
+    return (
+      <div style={s.app}>
+        <ModalReagendar/>
+        <div style={s.header}>
+          <div><p style={s.headerTitle}>{usuario.nombre}</p><p style={s.headerSub}>{usuario.especialidad}</p></div>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:13,fontWeight:700,color:"#1a6b8a"}}>REHAB HOME</span>
+            <button style={s.btnOutline} onClick={handleLogout}>Salir</button>
+          </div>
+        </div>
+        <div style={s.section}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,background:"#fff",border:"1px solid #E5E7EB",borderRadius:10,padding:"8px 12px"}}>
+            <button onClick={()=>irDia(-1)} style={{background:"none",border:"none",cursor:"pointer",color:"#6B7280",fontSize:18}}>‹</button>
+            <div style={{flex:1,textAlign:"center"}}>
+              <div style={{fontSize:14,fontWeight:600,textTransform:"capitalize"}}>{fechaLabel}</div>
+              <input type="date" value={fechaSel} onChange={e=>setFechaSel(e.target.value)} style={{fontSize:11,color:"#9CA3AF",border:"none",background:"none",textAlign:"center",cursor:"pointer",fontFamily:"inherit",outline:"none",marginTop:2}}/>
+            </div>
+            <button onClick={()=>irDia(1)} style={{background:"none",border:"none",cursor:"pointer",color:"#6B7280",fontSize:18}}>›</button>
+            {!esHoy && <button onClick={()=>setFechaSel(HOY)} style={{...s.badge("#E6F1FB","#185FA5"),cursor:"pointer",border:"none",fontSize:11}}>Hoy</button>}
+          </div>
+          <div style={{position:"relative",marginBottom:14}}>
+            <input style={{...s.input,paddingLeft:32}} placeholder="Buscar por nombre o RUT (todas las fechas)..." value={filtroPac} onChange={e=>setFiltroPac(e.target.value)}/>
+            {filtroPac && <button onClick={()=>setFiltroPac("")} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#9CA3AF",fontSize:18}}>×</button>}
+          </div>
+          {pendingAlert&&pend.length>0&&esHoy&&!filtroPac && (
+            <div style={{background:"#FFF3CD",border:"1px solid #FBBF24",borderRadius:10,padding:"12px 16px",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
+              <div><span style={{fontWeight:600,fontSize:13,color:"#856404"}}>⚠ {pend.length} evolución{pend.length>1?"es":""} pendiente{pend.length>1?"s":""}</span><div style={{fontSize:12,color:"#92600A",marginTop:2}}>{pend.map(p=>p.nombre).join(", ")}</div></div>
+              <button style={{...s.btn("#D97706"),fontSize:12}} onClick={()=>{handleReminder();setPendingAlert(false);}}>{reminderSent?"✓ Enviado":"Recordatorio"}</button>
+            </div>
+          )}
+          {!filtroPac && (
+            <div style={{display:"flex",gap:10,marginBottom:14}}>
+              {[["Completadas",lista.filter(p=>getEvo(p.id)).length,"#D4EDDA","#155724"],["Pendientes",pend.length,"#FFF3CD","#856404"],["Total",lista.length,"#E6F1FB","#185FA5"]].map(([lbl,cnt,bg,color])=>(
+                <div key={lbl} style={{background:bg,borderRadius:10,padding:"10px 0",flex:1,textAlign:"center"}}>
+                  <div style={{fontSize:20,fontWeight:700,color}}>{cnt}</div>
+                  <div style={{fontSize:11,color}}>{lbl}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          {filtroPac && <p style={{fontSize:12,color:"#6B7280",marginBottom:10}}>{listaF.length} resultado{listaF.length!==1?"s":""} · <span style={{color:"#9CA3AF"}}>todas las fechas</span></p>}
+          {listaF.length===0 && <div style={{textAlign:"center",padding:"32px 0",color:"#9CA3AF"}}><div style={{fontSize:32,marginBottom:8}}>📅</div><div style={{fontSize:14}}>{filtroPac?`Sin resultados para "${filtroPac}"`:"Sin atenciones para este día"}</div></div>}
+          {listaF.map(p=>{
+            const hecho=!!getEvo(p.id);
+            return (
+              <div key={p.id} style={s.card}>
+                <div style={{padding:"12px 16px",display:"flex",alignItems:"center",gap:12}}>
+                  <div style={{fontSize:14,fontWeight:700,color:usuario.color,minWidth:44,cursor:"pointer"}} onClick={()=>openAtencion(p)}>{p.hora}</div>
+                  <div style={{flex:1,cursor:"pointer"}} onClick={()=>openAtencion(p)}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}>
+                      <div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div>
+                      <SesionBadge p={p}/>
+                    </div>
+                    <div style={{fontSize:12,color:"#6B7280"}}>{p.rut}{p.diagnostico ? ` · ${p.diagnostico}` : ""}</div>
+                    <div style={{fontSize:11,color:"#9CA3AF",marginTop:1}}>📍 {p.direccion}{p.comuna?`, ${p.comuna}`:""}</div>
+                    {filtroPac && <div style={{fontSize:11,color:"#9CA3AF"}}>{p.fecha} · {p.hora}</div>}
+                  </div>
+                  <span style={s.badge(hecho?"#D4EDDA":"#FFF3CD",hecho?"#155724":"#856404")}>{hecho?"Completada":"Pendiente"}</span>
+                  <button style={{...s.btnOutline,fontSize:12,padding:"5px 10px"}} onClick={()=>openReagendar(p)}>Reagendar</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  if(vista==="atencion"&&pacienteActivo) {
+    const prof = profesionales.find(p=>p.id===pacienteActivo.profesional_id);
+    const color = prof?prof.color:"#1a6b8a";
+    const evoActual = getEvo(pacienteActivo.id);
+    const historial = evoluciones.filter(e=>e.paciente_id===pacienteActivo.id);
+    return (
+      <div style={s.app}>
+        <ModalReagendar/>
+        <div style={s.header}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <button style={s.btnOutline} onClick={()=>setVista(rol==="admin"?"admin":"agenda")}>← Volver</button>
+            <div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <p style={s.headerTitle}>{pacienteActivo.nombre}</p>
+                <SesionBadge p={pacienteActivo}/>
+              </div>
+              <p style={s.headerSub}>{pacienteActivo.rut} · {pacienteActivo.hora} · {pacienteActivo.fecha}</p>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button style={{...s.btnOutline,fontSize:12}} onClick={()=>openReagendar(pacienteActivo)}>📅 Reagendar</button>
+            {evoActual && <button style={{...s.btnOutline,fontSize:12}} onClick={()=>generarPDF(pacienteActivo,evoActual,prof)}>📄 PDF</button>}
+            {historial.length>0 && <button style={s.btnOutline} onClick={()=>setVistaHistorial(!vistaHistorial)}>{vistaHistorial?"Editar":"Historial"}</button>}
+          </div>
+        </div>
+        <div style={s.section}>
+          <div style={{background:"#F0F9F5",border:"1px solid #9FE1CB",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:13}}>
+            {pacienteActivo.diagnostico && <div style={{marginBottom:4}}><span style={{fontWeight:600}}>Diagnóstico:</span> {pacienteActivo.diagnostico}</div>}
+            <div><span style={{fontWeight:600}}>Dirección:</span> {pacienteActivo.direccion}{pacienteActivo.comuna ? `, ${pacienteActivo.comuna}` : ""}</div>
+            <div><span style={{fontWeight:600}}>Email:</span> {pacienteActivo.email}</div>
+            {(pacienteActivo.sesion_numero||pacienteActivo.sesiones_total) && <div><span style={{fontWeight:600}}>Sesión:</span> {pacienteActivo.sesion_numero||"?"} de {pacienteActivo.sesiones_total||"?"}</div>}
+          </div>
+          {vistaHistorial ? (
+            <div>
+              <p style={{fontWeight:600,marginBottom:10}}>Historial de evoluciones</p>
+              {historial.map(evo=>(
+                <div key={evo.id} style={{...s.card,padding:14}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+                    <span style={{fontSize:12,color:"#6B7280"}}>{evo.fecha} · {evo.hora}</span>
+                    <button style={{...s.btnOutline,fontSize:11,padding:"4px 10px"}} onClick={()=>generarPDF(pacienteActivo,evo,prof)}>PDF</button>
+                  </div>
+                  <div style={{marginBottom:6}}><span style={s.label}>Anamnesis</span><p style={{margin:0,fontSize:13}}>{evo.anamnesis}</p></div>
+                  <div style={{marginBottom:6}}><span style={s.label}>Procedimientos</span><p style={{margin:0,fontSize:13}}>{evo.procedimientos}</p></div>
+                  <div><span style={s.label}>Post sesión</span><p style={{margin:0,fontSize:13}}>{evo.post_sesion}</p></div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div>
+              <p style={{fontWeight:600,fontSize:15,marginBottom:14}}>Evolución de la atención</p>
+              {[["anamnesis","Anamnesis","Motivo de consulta..."],["procedimientos","Procedimientos realizados","Técnicas aplicadas..."],["postSesion","Post sesión","Evolución, indicaciones..."]].map(([key,lbl,ph])=>(
+                <div key={key} style={{marginBottom:14}}>
+                  <label style={s.label}>{lbl}</label>
+                  <textarea style={s.textarea} value={form[key]} placeholder={ph} onChange={e=>setForm(f=>({...f,[key]:e.target.value}))}/>
+                </div>
+              ))}
+              <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+                <button style={s.btn(color)} onClick={handleGuardar}>Guardar evolución</button>
+                {guardado && <span style={{fontSize:13,color:"#1D9E75",fontWeight:500}}>✓ Guardado en Supabase</span>}
+                {emailStatus==="ok" && <span style={{fontSize:12,color:"#1D9E75"}}>✉ Registrado en historial</span>}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if(vista==="admin") {
+    const profSelec = adminProf?profesionales.find(p=>p.id===adminProf):null;
+    const pacAdmin = adminProf?getPxProf(adminProf,null):[];
+    const emailsF = emailFilter==="todos"?emailLog:emailLog.filter(e=>e.tipo===emailFilter);
+    const atencionesProf = profesionales.map(p=>({nombre:p.nombre.split(" ").slice(0,2).join(" "),color:p.color,total:pacientes.filter(x=>x.profesional_id===p.id).length,comp:pacientes.filter(x=>x.profesional_id===p.id&&getEvo(x.id)).length}));
+    const maxAt = Math.max(...atencionesProf.map(x=>x.total),1);
+    const especMap={};profesionales.forEach(p=>{const cnt=pacientes.filter(x=>x.profesional_id===p.id).length;especMap[p.especialidad]=(especMap[p.especialidad]||0)+cnt;});
+    const especData=Object.entries(especMap);
+    const maxEs=Math.max(...especData.map(x=>x[1]),1);
+    const evoEm=emailLog.filter(e=>e.tipo==="evolucion"&&e.estado==="enviado").length;
+    const recEm=emailLog.filter(e=>e.tipo==="recordatorio"&&e.estado==="enviado").length;
+    const reaEm=emailLog.filter(e=>e.tipo==="reagendamiento"&&e.estado==="enviado").length;
+    const maxEm=Math.max(evoEm,recEm,reaEm,1);
+    const Bar=({value,max,color,h=100})=>{const pct=Math.round((value/max)*100);return(<div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}><span style={{fontSize:12,fontWeight:600}}>{value}</span><div style={{width:32,height:h,background:"#F3F4F6",borderRadius:6,display:"flex",alignItems:"flex-end",overflow:"hidden"}}><div style={{width:"100%",height:`${pct}%`,background:color,borderRadius:6}}/></div></div>);};
+    const exportExcel=()=>{
+      const r1=atencionesProf.map(p=>({Profesional:p.nombre,Total:p.total,Completadas:p.comp,Pendientes:p.total-p.comp}));
+      const r2=especData.map(([e,c])=>({Especialidad:e,Pacientes:c}));
+      const r3=[{Tipo:"Evoluciones",Enviados:evoEm},{Tipo:"Recordatorios",Enviados:recEm},{Tipo:"Reagendamientos",Enviados:reaEm}];
+      const toCSV=rows=>!rows.length?"":Object.keys(rows[0]).join(",")+"\n"+rows.map(r=>Object.values(r).map(v=>`"${v}"`).join(",")).join("\n");
+      const fecha=new Date().toLocaleDateString("es-CL").replace(/\//g,"-");
+      const contenido=["RESUMEN REHAB HOME - "+fecha,"","=== ATENCIONES ===",toCSV(r1),"","=== ESPECIALIDADES ===",toCSV(r2),"","=== EMAILS ===",toCSV(r3),"",`Total Pacientes,${pacientes.length}`,`Evoluciones,${evoluciones.length}`,`Pendientes,${pacientes.filter(p=>!getEvo(p.id)).length}`].join("\n");
+      const blob=new Blob(["﻿"+contenido],{type:"text/csv;charset=utf-8;"});
+      const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`rehabhome_${fecha}.csv`;a.click();URL.revokeObjectURL(url);
+    };
+    return (
+      <div style={s.app}>
+        <ModalReagendar/>
+        <div style={s.header}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}><LogoSVG size={32}/><div><p style={s.headerTitle}>REHAB HOME</p><p style={s.headerSub}>Panel Administrador</p></div></div>
+          <div style={{display:"flex",gap:8}}><button style={s.btnOutline} onClick={loadAll}>↻</button><button style={s.btnOutline} onClick={handleLogout}>Salir</button></div>
+        </div>
+        <div style={{borderBottom:"1px solid #E5E7EB",background:"#fff",padding:"0 20px",display:"flex",gap:4,overflowX:"auto"}}>
+          {[["agenda","Agenda"],["profesionales","Profesionales"],["pacientes","Pacientes"],["emails","Emails"],["estadisticas","Estadísticas"]].map(([key,lbl])=>(
+            <button key={key} style={s.tab(adminTab===key)} onClick={()=>{setAdminTab(key);setAdminProf(null);setShowNewProf(false);setShowNewPac(false);}}>{lbl}</button>
+          ))}
+        </div>
+
+        {adminTab==="agenda" && (
+          <div style={s.section}>
+            <p style={{fontSize:13,color:"#6B7280",marginBottom:12}}>Selecciona un profesional</p>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}}>
+              {profesionales.filter(p=>p.activo).map(p=>(
+                <button key={p.id} onClick={()=>setAdminProf(adminProf===p.id?null:p.id)} style={{background:adminProf===p.id?p.color:"#fff",color:adminProf===p.id?"#fff":"#374151",border:`1px solid ${p.color}`,borderRadius:20,padding:"6px 14px",cursor:"pointer",fontSize:13}}>{p.nombre.split(" ").slice(0,2).join(" ")}</button>
+              ))}
+            </div>
+            {profSelec && pacAdmin.map(p=>{
+              const hecho=!!getEvo(p.id);
+              return (
+                <div key={p.id} style={s.card}>
+                  <div style={{padding:"11px 16px",display:"flex",alignItems:"center",gap:12}}>
+                    <div style={{fontSize:14,fontWeight:700,color:profSelec.color,minWidth:44,cursor:"pointer"}} onClick={()=>openAtencion(p)}>{p.hora}</div>
+                    <div style={{flex:1,cursor:"pointer"}} onClick={()=>openAtencion(p)}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}>
+                        <div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div>
+                        <SesionBadge p={p}/>
+                      </div>
+                      <div style={{fontSize:12,color:"#6B7280"}}>{p.rut} · {p.fecha}</div>
+                      <div style={{fontSize:11,color:"#9CA3AF",marginTop:1}}>📍 {p.direccion}{p.comuna?`, ${p.comuna}`:""}</div>
+                      {p.diagnostico && <div style={{fontSize:11,color:"#6B7280",fontStyle:"italic",marginTop:1}}>{p.diagnostico}</div>}
+                    </div>
+                    <span style={s.badge(hecho?"#D4EDDA":"#FFF3CD",hecho?"#155724":"#856404")}>{hecho?"Completada":"Pendiente"}</span>
+                    <button style={{...s.btnOutline,fontSize:12,padding:"5px 10px"}} onClick={()=>openReagendar(p)}>Reagendar</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {adminTab==="profesionales" && (
+          <div style={s.section}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+              <p style={{margin:0,fontWeight:600}}>Profesionales ({profesionales.length})</p>
+              <button style={s.btn("#1a6b8a")} onClick={()=>setShowNewProf(!showNewProf)}>+ Agregar</button>
+            </div>
+            {showNewProf && (
+              <div style={{...s.card,padding:16,marginBottom:14,background:"#F0FDF4"}}>
+                <p style={{fontWeight:600,fontSize:14,margin:"0 0 12px"}}>Nuevo profesional</p>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                  {[["nombre","Nombre"],["rut","RUT"],["email","Email"]].map(([k,lbl])=>(<div key={k}><label style={s.label}>{lbl}</label><input style={s.input} value={newProf[k]} onChange={e=>setNewProf(f=>({...f,[k]:e.target.value}))}/></div>))}
+                  <div><label style={s.label}>Especialidad</label><select style={s.input} value={newProf.especialidad} onChange={e=>setNewProf(f=>({...f,especialidad:e.target.value}))}>{ESPECIALIDADES.map(e=><option key={e}>{e}</option>)}</select></div>
+                  <div><label style={s.label}>Color</label><div style={{display:"flex",gap:6,marginTop:4}}>{COLORES.map(c=><div key={c} onClick={()=>setNewProf(f=>({...f,color:c}))} style={{width:24,height:24,borderRadius:"50%",background:c,cursor:"pointer",border:newProf.color===c?"3px solid #1a1a2e":"2px solid transparent"}}/>)}</div></div>
+                </div>
+                <div style={{display:"flex",gap:8,marginTop:12}}>
+                  <button style={s.btn("#1a6b8a")} onClick={async()=>{ if(!newProf.nombre||!newProf.rut||!newProf.email)return; const row=await db.post("profesionales",{...newProf,activo:true}); if(Array.isArray(row)&&row[0])setProfesionales(prev=>[...prev,row[0]]); setNewProf({nombre:"",especialidad:"Kinesiología",rut:"",email:"",color:COLORES[0]});setShowNewProf(false); }}>Guardar</button>
+                  <button style={s.btnOutline} onClick={()=>setShowNewProf(false)}>Cancelar</button>
+                </div>
+                <p style={{fontSize:11,color:"#6B7280",marginTop:8}}>Clave = primeros 5 dígitos del RUT.</p>
+              </div>
+            )}
+            {profesionales.map(p=>(
+              <div key={p.id} style={{...s.card,padding:"12px 16px",display:"flex",alignItems:"center",gap:12}}>
+                <div style={{width:36,height:36,borderRadius:"50%",background:p.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:p.color,flexShrink:0}}>{p.nombre.split(" ").map(n=>n[0]).join("").slice(0,2)}</div>
+                <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div><div style={{fontSize:12,color:"#6B7280"}}>{p.especialidad} · {p.rut}</div><div style={{fontSize:11,color:"#9CA3AF"}}>{p.email} · clave: {getPassword(p.rut)}</div></div>
+                <span style={s.badge(p.activo?"#D4EDDA":"#F3F4F6",p.activo?"#155724":"#6B7280")}>{p.activo?"Activo":"Inactivo"}</span>
+                <button style={p.activo?s.btnDanger:s.btnSuccess} onClick={async()=>{ const row=await db.patch("profesionales",p.id,{activo:!p.activo}); if(Array.isArray(row)&&row[0])setProfesionales(prev=>prev.map(x=>x.id===p.id?row[0]:x)); }}>{p.activo?"Inactivar":"Activar"}</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {adminTab==="pacientes" && (
+          <div style={s.section}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+              <p style={{margin:0,fontWeight:600}}>Pacientes ({pacientes.length})</p>
+              <button style={s.btn("#1a6b8a")} onClick={()=>setShowNewPac(!showNewPac)}>+ Agregar</button>
+            </div>
+            {showNewPac && (
+              <div style={{...s.card,padding:16,marginBottom:14,background:"#F0FDF4"}}>
+                <p style={{fontWeight:600,fontSize:14,margin:"0 0 12px"}}>Nuevo paciente</p>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                  {[["nombre","Nombre"],["rut","RUT"],["email","Email"],["direccion","Dirección"],["hora","Hora"],["fecha","Fecha"]].map(([k,lbl])=>(<div key={k}><label style={s.label}>{lbl}</label><input style={s.input} value={newPac[k]} onChange={e=>setNewPac(f=>({...f,[k]:e.target.value}))}/></div>))}
+                  <div><label style={s.label}>Comuna</label><select style={s.input} value={newPac.comuna} onChange={e=>setNewPac(f=>({...f,comuna:e.target.value}))}><option value="">Seleccionar...</option>{COMUNAS.map(c=><option key={c}>{c}</option>)}</select></div>
+                  <div><label style={s.label}>Profesional</label><select style={s.input} value={newPac.profesionalId} onChange={e=>setNewPac(f=>({...f,profesionalId:e.target.value}))}><option value="">Seleccionar...</option>{profesionales.filter(p=>p.activo).map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div>
+                  <div style={{gridColumn:"1/-1"}}><label style={s.label}>Diagnóstico</label><input style={s.input} value={newPac.diagnostico} placeholder="Ej: Fractura cadera, ACV, Parkinson..." onChange={e=>setNewPac(f=>({...f,diagnostico:e.target.value}))}/></div>
+                  <div><label style={s.label}>Sesión N°</label><input type="number" min="1" style={s.input} value={newPac.sesion_numero} onChange={e=>setNewPac(f=>({...f,sesion_numero:e.target.value}))}/></div>
+                  <div><label style={s.label}>Total sesiones</label><input type="number" min="1" style={s.input} value={newPac.sesiones_total} placeholder="Ej: 10" onChange={e=>setNewPac(f=>({...f,sesiones_total:e.target.value}))}/></div>
+                </div>
+                <div style={{display:"flex",gap:8,marginTop:12}}>
+                  <button style={s.btn("#1a6b8a")} onClick={async()=>{ if(!newPac.nombre||!newPac.rut||!newPac.email||!newPac.profesionalId)return; const row=await db.post("pacientes",{nombre:newPac.nombre,rut:newPac.rut,email:newPac.email,direccion:newPac.direccion,comuna:newPac.comuna,hora:newPac.hora,fecha:newPac.fecha,profesional_id:newPac.profesionalId,diagnostico:newPac.diagnostico,sesion_numero:newPac.sesion_numero||1,sesiones_total:newPac.sesiones_total||null}); if(Array.isArray(row)&&row[0])setPacientes(prev=>[...prev,row[0]]); setNewPac({nombre:"",rut:"",direccion:"",comuna:"",email:"",profesionalId:"",hora:"",fecha:HOY,diagnostico:"",sesion_numero:1,sesiones_total:""});setShowNewPac(false); }}>Guardar</button>
+                  <button style={s.btnOutline} onClick={()=>setShowNewPac(false)}>Cancelar</button>
+                </div>
+              </div>
+            )}
+            {editingPac && (
+              <div style={{...s.card,padding:16,marginBottom:14,background:"#EFF6FF"}}>
+                <p style={{fontWeight:600,fontSize:14,margin:"0 0 12px"}}>Editar paciente</p>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                  {[["nombre","Nombre"],["rut","RUT"],["email","Email"],["direccion","Dirección"]].map(([k,lbl])=>(<div key={k}><label style={s.label}>{lbl}</label><input style={s.input} value={editingPac[k]||""} onChange={e=>setEditingPac(f=>({...f,[k]:e.target.value}))}/></div>))}
+                  <div><label style={s.label}>Comuna</label><select style={s.input} value={editingPac.comuna||""} onChange={e=>setEditingPac(f=>({...f,comuna:e.target.value}))}><option value="">Seleccionar...</option>{COMUNAS.map(c=><option key={c}>{c}</option>)}</select></div>
+                  <div></div>
+                  <div style={{gridColumn:"1/-1"}}><label style={s.label}>Diagnóstico</label><input style={s.input} value={editingPac.diagnostico||""} onChange={e=>setEditingPac(f=>({...f,diagnostico:e.target.value}))}/></div>
+                  <div><label style={s.label}>Sesión N°</label><input type="number" min="1" style={s.input} value={editingPac.sesion_numero||""} onChange={e=>setEditingPac(f=>({...f,sesion_numero:e.target.value}))}/></div>
+                  <div><label style={s.label}>Total sesiones</label><input type="number" min="1" style={s.input} value={editingPac.sesiones_total||""} onChange={e=>setEditingPac(f=>({...f,sesiones_total:e.target.value}))}/></div>
+                </div>
+                <div style={{display:"flex",gap:8,marginTop:12}}>
+                  <button style={s.btn("#378ADD")} onClick={async()=>{ const row=await db.patch("pacientes",editingPac.id,{nombre:editingPac.nombre,rut:editingPac.rut,email:editingPac.email,direccion:editingPac.direccion,comuna:editingPac.comuna,diagnostico:editingPac.diagnostico,sesion_numero:editingPac.sesion_numero||1,sesiones_total:editingPac.sesiones_total||null}); if(Array.isArray(row)&&row[0])setPacientes(prev=>prev.map(p=>p.id===editingPac.id?row[0]:p)); setEditingPac(null); }}>Guardar</button>
+                  <button style={s.btnOutline} onClick={()=>setEditingPac(null)}>Cancelar</button>
+                </div>
+              </div>
+            )}
+            {pacientes.map(p=>{
+              const prof=profesionales.find(pr=>pr.id===p.profesional_id);
+              return (
+                <div key={p.id} style={{...s.card,padding:"11px 16px",display:"flex",alignItems:"center",gap:12}}>
+                  <div style={{flex:1}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div>
+                      <SesionBadge p={p}/>
+                    </div>
+                    <div style={{fontSize:12,color:"#6B7280"}}>{p.rut} · {p.email}</div>
+                    {p.diagnostico && <div style={{fontSize:11,color:"#6B7280",fontStyle:"italic"}}>{p.diagnostico}</div>}
+                    <div style={{fontSize:11,color:"#9CA3AF"}}>{prof?prof.nombre:"-"} · {p.hora} · {p.fecha}</div>
+                  </div>
+                  <button style={s.btnOutline} onClick={()=>setEditingPac({...p})}>Editar</button>
+                  <button style={{...s.btnOutline,fontSize:12,padding:"5px 10px"}} onClick={()=>openReagendar(p)}>Reagendar</button>
+                  <button style={{...s.btnOutline,fontSize:12}} onClick={()=>openAtencion(p)}>Ver</button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {adminTab==="emails" && (
+          <div style={s.section}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+              <p style={{margin:0,fontWeight:600}}>Emails ({emailLog.length})</p>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {[["todos","Todos"],["evolucion","Evoluciones"],["recordatorio","Recordatorios"],["reagendamiento","Reagendamientos"]].map(([v,lbl])=>(
+                  <button key={v} onClick={()=>setEmailFilter(v)} style={{background:emailFilter===v?"#1a6b8a":"#fff",color:emailFilter===v?"#fff":"#6B7280",border:"1px solid #E5E7EB",borderRadius:20,padding:"4px 12px",cursor:"pointer",fontSize:12}}>{lbl}</button>
+                ))}
+              </div>
+            </div>
+            {emailsF.map(e=>(
+              <div key={e.id} style={{...s.card,padding:"11px 16px",display:"flex",alignItems:"center",gap:12}}>
+                <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{e.asunto}</div><div style={{fontSize:12,color:"#6B7280"}}>{e.destinatario} · {e.fecha} {e.hora}</div></div>
+                <span style={s.badge("#E6F1FB","#185FA5")}>{e.tipo==="evolucion"?"Evolución":e.tipo==="recordatorio"?"Recordatorio":"Reagendamiento"}</span>
+                <span style={s.badge(e.estado==="enviado"?"#D4EDDA":"#FCEBEB",e.estado==="enviado"?"#155724":"#A32D2D")}>{e.estado==="enviado"?"✓":"✗"}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {adminTab==="estadisticas" && (
+          <div style={s.section}>
+            <div style={{display:"flex",justifyContent:"flex-end",marginBottom:16}}>
+              <button style={{...s.btn("#1a6b8a"),display:"flex",alignItems:"center",gap:6}} onClick={exportExcel}>📥 Exportar Excel</button>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:20}}>
+              {[["Pacientes",pacientes.length,"#E6F1FB","#185FA5"],["Evoluciones",evoluciones.length,"#D4EDDA","#155724"],["Pendientes",pacientes.filter(p=>!getEvo(p.id)).length,"#FFF3CD","#856404"],["Emails",emailLog.filter(e=>e.estado==="enviado").length,"#EAF3DE","#3B6D11"]].map(([lbl,val,bg,color])=>(
+                <div key={lbl} style={{background:bg,borderRadius:10,padding:"14px 10px",textAlign:"center"}}>
+                  <div style={{fontSize:24,fontWeight:700,color}}>{val}</div>
+                  <div style={{fontSize:11,color,marginTop:2}}>{lbl}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+              <div style={{...s.card,padding:16}}>
+                <p style={{fontWeight:600,fontSize:13,margin:"0 0 16px"}}>Atenciones por profesional</p>
+                <div style={{display:"flex",gap:16,alignItems:"flex-end",justifyContent:"center"}}>
+                  {atencionesProf.map(p=>(<div key={p.nombre} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6}}><Bar value={p.total} max={maxAt} color={p.color}/><span style={{fontSize:10,color:"#6B7280",textAlign:"center",maxWidth:60,lineHeight:1.2}}>{p.nombre}</span></div>))}
+                </div>
+              </div>
+              <div style={{...s.card,padding:16}}>
+                <p style={{fontWeight:600,fontSize:13,margin:"0 0 12px"}}>Completadas vs Pendientes</p>
+                {atencionesProf.map(p=>{const pct=p.total>0?Math.round((p.comp/p.total)*100):0;return(<div key={p.nombre} style={{marginBottom:12}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:12}}>{p.nombre}</span><span style={{fontSize:12,fontWeight:600,color:pct===100?"#155724":pct>=50?"#856404":"#A32D2D"}}>{pct}%</span></div><div style={{height:8,background:"#F3F4F6",borderRadius:4,overflow:"hidden"}}><div style={{height:"100%",width:`${pct}%`,background:p.color,borderRadius:4}}/></div><div style={{fontSize:10,color:"#9CA3AF",marginTop:3}}>{p.comp} completadas · {p.total-p.comp} pendientes</div></div>);})}
+              </div>
+              <div style={{...s.card,padding:16}}>
+                <p style={{fontWeight:600,fontSize:13,margin:"0 0 16px"}}>Por especialidad</p>
+                <div style={{display:"flex",gap:16,alignItems:"flex-end",justifyContent:"center"}}>
+                  {especData.map(([esp,cnt],i)=>(<div key={esp} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6}}><Bar value={cnt} max={maxEs} color={COLORES[i%COLORES.length]}/><span style={{fontSize:10,color:"#6B7280",textAlign:"center",maxWidth:65,lineHeight:1.2}}>{esp}</span></div>))}
+                </div>
+              </div>
+              <div style={{...s.card,padding:16}}>
+                <p style={{fontWeight:600,fontSize:13,margin:"0 0 16px"}}>Emails por tipo</p>
+                <div style={{display:"flex",gap:20,alignItems:"flex-end",justifyContent:"center"}}>
+                  {[["Evoluciones",evoEm,"#1D9E75"],["Recordatorios",recEm,"#378ADD"],["Reagendamientos",reaEm,"#7F77DD"]].map(([lbl,val,color])=>(<div key={lbl} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6}}><Bar value={val} max={maxEm} color={color}/><span style={{fontSize:10,color:"#6B7280",textAlign:"center",maxWidth:64,lineHeight:1.2}}>{lbl}</span></div>))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return null;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
