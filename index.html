@@ -101,16 +101,10 @@ function generarPDF(pac, evo, prof) {
   </head><body>
   <div style="border-bottom:2px solid #1a6b8a;padding-bottom:16px;margin-bottom:24px;display:flex;justify-content:space-between">
     <div><div class="logo">REHAB HOME</div><div style="font-size:11px;color:#6B7280">Registro clínico</div></div>
-    <div style="text-align:right;font-size:12px;color:#6B7280">${evo.fecha} · ${evo.hora}${(pac.sesion_numero||pac.sesiones_total)?` · Sesión ${pac.sesion_numero||"?"}/${pac.sesiones_total||"?"}`:""}</div>
+    <div style="text-align:right;font-size:12px;color:#6B7280">${evo.fecha} · ${evo.hora}</div>
   </div>
   <h2>Datos del paciente</h2>
-  <div class="grid">
-    <div class="fl"><label>Nombre</label><p>${pac.nombre}</p></div>
-    <div class="fl"><label>RUT</label><p>${pac.rut}</p></div>
-    <div class="fl"><label>Dirección</label><p>${pac.direccion}${pac.comuna?`, ${pac.comuna}`:""}</p></div>
-    <div class="fl"><label>Email</label><p>${pac.email}</p></div>
-    ${pac.diagnostico?`<div class="fl" style="grid-column:1/-1"><label>Diagnóstico</label><p>${pac.diagnostico}</p></div>`:""}
-  </div>
+  <div class="grid"><div class="fl"><label>Nombre</label><p>${pac.nombre}</p></div><div class="fl"><label>RUT</label><p>${pac.rut}</p></div><div class="fl"><label>Dirección</label><p>${pac.direccion}</p></div><div class="fl"><label>Email</label><p>${pac.email}</p></div></div>
   <h2>Profesional</h2>
   <div class="grid"><div class="fl"><label>Nombre</label><p>${prof?prof.nombre:"-"}</p></div><div class="fl"><label>Especialidad</label><p>${prof?prof.especialidad:"-"}</p></div></div>
   <h2>Evolución</h2>
@@ -125,11 +119,55 @@ function generarPDF(pac, evo, prof) {
   setTimeout(()=>w.print(),500);
 }
 
-const SesionBadge = ({p}) => (p.sesion_numero||p.sesiones_total) ? (
-  <span style={{fontSize:11,background:"#E6F1FB",color:"#185FA5",borderRadius:10,padding:"1px 8px",fontWeight:600,whiteSpace:"nowrap"}}>
-    S{p.sesion_numero||"?"}/{p.sesiones_total||"?"}
-  </span>
-) : null;
+// ── Excel import helpers ──────────────────────────────────────────────────────
+const parseImportDate = d => {
+  if (!d) return '';
+  d = String(d).split(' ')[0].trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  const sep = d.includes('/') ? '/' : '-';
+  const p = d.split(sep);
+  if (p.length === 3 && p[0].length <= 2) return `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+  return d;
+};
+const parseImportHora = h => {
+  if (!h) return '';
+  const m = String(h).match(/(\d{1,2}):(\d{2})/);
+  return m ? `${m[1].padStart(2,'0')}:${m[2]}` : '';
+};
+const parseExcelPaste = (text, profesionales) => {
+  const lines = text.split('\n').map(l=>l.trimEnd()).filter(l=>l.trim());
+  if (lines.length < 2) return [];
+  const headers = lines[0].split('\t').map(h=>h.trim().toLowerCase().replace(/[\s\n"]+/g,' '));
+  const idx = (...terms) => { for (const t of terms){ const i=headers.findIndex(h=>h.includes(t)); if(i>=0)return i; } return -1; };
+  const cols = {
+    nombre: idx('nombre paciente','nombre'),
+    rut:    idx('rut paciente','rut'),
+    email:  idx('mail','email','correo'),
+    dir:    idx('direcci'),
+    com:    idx('comuna'),
+    fecha:  idx('fecha visita'),
+    hora:   idx('hora visita','hora'),
+    prof:   idx('profesional asignado','profesional'),
+    diag:   idx('diagn'),
+    tel:    idx('tel'),
+  };
+  return lines.slice(1).map((line,i) => {
+    const c = line.split('\t');
+    const g = k => cols[k]>=0 ? (c[cols[k]]||'').trim() : '';
+    const profNombre = g('prof');
+    const profMatch = profesionales.find(p=>p.nombre?.toLowerCase()===profNombre.toLowerCase());
+    const row = {
+      _idx:i, nombre:g('nombre'), rut:g('rut'), email:g('email'),
+      direccion:g('dir'), comuna:g('com'),
+      fecha:parseImportDate(g('fecha')), hora:parseImportHora(g('hora')),
+      profesional_id: profMatch?profMatch.id:null,
+      profNombre, diagnostico:g('diag'), telefono:g('tel'),
+    };
+    row._ok = !!(row.nombre && row.rut && row.fecha && row.profesional_id);
+    return row;
+  }).filter(r=>r.nombre&&r.rut);
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
 function App() {
   const [profesionales,setProfesionales] = useState([]);
@@ -152,7 +190,7 @@ function App() {
   const [showNewProf,setShowNewProf] = useState(false);
   const [showNewPac,setShowNewPac] = useState(false);
   const [newProf,setNewProf] = useState({nombre:"",especialidad:"Kinesiología",rut:"",email:"",color:COLORES[0]});
-  const [newPac,setNewPac] = useState({nombre:"",rut:"",direccion:"",comuna:"",email:"",profesionalId:"",hora:"",fecha:HOY,diagnostico:"",sesion_numero:1,sesiones_total:""});
+  const [newPac,setNewPac] = useState({nombre:"",rut:"",direccion:"",comuna:"",email:"",profesionalId:"",hora:"",fecha:HOY});
   const [pendingAlert,setPendingAlert] = useState(false);
   const [reminderSent,setReminderSent] = useState(false);
   const [vistaHistorial,setVistaHistorial] = useState(false);
@@ -163,6 +201,11 @@ function App() {
   const [reagendando,setReagendando] = useState(null);
   const [reagendaForm,setReagendaForm] = useState({fecha:"",hora:"",profesionalId:"",motivo:""});
   const [reagendaOk,setReagendaOk] = useState(false);
+  const [showPendingList,setShowPendingList] = useState(false);
+  const [showImport,setShowImport] = useState(false);
+  const [pasteText,setPasteText] = useState('');
+  const [importPreview,setImportPreview] = useState(null);
+  const [importando,setImportando] = useState(false);
 
   const getPxProf = (profId,fecha) => pacientes.filter(p=>p.profesional_id===profId&&(fecha?p.fecha===fecha:true)).sort((a,b)=>a.hora.localeCompare(b.hora));
   const getEvo = pacId => evoluciones.find(e=>e.paciente_id===pacId);
@@ -204,6 +247,28 @@ function App() {
     if(Array.isArray(row)&&row[0]) setEmailLog(prev=>[row[0],...prev]);
   };
 
+  const handleImport = async () => {
+    if (!importPreview||!importPreview.length) return;
+    setImportando(true);
+    let ok=0,errs=0;
+    for (const row of importPreview) {
+      try {
+        await db.post("pacientes",{
+          nombre:row.nombre, rut:row.rut, email:row.email,
+          direccion:row.direccion, comuna:row.comuna,
+          hora:row.hora, fecha:row.fecha,
+          profesional_id:row.profesional_id,
+          diagnostico:row.diagnostico||undefined,
+          telefono:row.telefono||undefined,
+        });
+        ok++;
+      } catch(e){ errs++; }
+    }
+    await loadAll();
+    setImportando(false); setShowImport(false); setPasteText(''); setImportPreview(null);
+    alert(`Importación completada: ${ok} sesión${ok!==1?"es":""} agregada${ok!==1?"s":""}${errs?` · ${errs} errores`:""}.`);
+  };
+
   const handleGuardar = async () => {
     const prof = profesionales.find(p=>p.id===pacienteActivo.profesional_id);
     const evoData = {paciente_id:pacienteActivo.id,anamnesis:form.anamnesis,procedimientos:form.procedimientos,post_sesion:form.postSesion,fecha:pacienteActivo.fecha,hora:pacienteActivo.hora};
@@ -234,7 +299,7 @@ function App() {
 
   const openReagendar = p => { setReagendando(p);setReagendaForm({fecha:p.fecha,hora:p.hora,profesionalId:p.profesional_id,motivo:""}); };
   const openAtencion = p => {
-    setPacienteActivo(p);setVistaHistorial(false);
+    setPacienteActivo(p);setVistaHistorial(!!evoluciones.find(e=>e.paciente_id===p.id));
     const evo=getEvo(p.id);
     setForm(evo?{anamnesis:evo.anamnesis,procedimientos:evo.procedimientos,postSesion:evo.post_sesion}:{anamnesis:"",procedimientos:"",postSesion:""});
     setGuardado(false);setEmailStatus(null);setVista("atencion");
@@ -301,7 +366,7 @@ function App() {
           {loginError && <div style={{fontSize:12,color:"#A32D2D",background:"#FCEBEB",borderRadius:6,padding:"6px 10px",marginBottom:12}}>{loginError}</div>}
           <button style={{...s.btn("#1a6b8a"),width:"100%",padding:10}} onClick={handleLogin}>Ingresar</button>
         </div>
-        <p style={{fontSize:11,color:"#9CA3AF",textAlign:"center",marginTop:12,lineHeight:1.6}}>Profesionales: RUT sin puntos · clave = 5 primeros dígitos<br/>Admin: admin / admin2026</p>
+        <p style={{fontSize:11,color:"#9CA3AF",textAlign:"center",marginTop:12,lineHeight:1.6}}>Profesionales: RUT sin puntos · clave = 5 primeros dígitos</p>
       </div>
     </div>
   );
@@ -310,6 +375,7 @@ function App() {
     const lista = getPxProf(usuario.id,fechaSel);
     const pend = getPend(usuario.id,fechaSel);
     const esHoy = fechaSel===HOY;
+    const allPend = pacientes.filter(p=>p.profesional_id===usuario.id&&p.fecha<=HOY&&!getEvo(p.id)).sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
     const fechaLabel = esHoy?"Hoy":new Date(fechaSel+"T00:00:00").toLocaleDateString("es-CL",{weekday:"long",day:"numeric",month:"long"});
     const irDia = offset => { const d=new Date(fechaSel+"T00:00:00");d.setDate(d.getDate()+offset);setFechaSel(d.toISOString().split("T")[0]); };
     const listaF = filtroPac.trim() ? getPxProf(usuario.id,null).filter(p=>p.nombre.toLowerCase().includes(filtroPac.toLowerCase())||p.rut.includes(filtroPac)) : lista;
@@ -337,10 +403,25 @@ function App() {
             <input style={{...s.input,paddingLeft:32}} placeholder="Buscar por nombre o RUT (todas las fechas)..." value={filtroPac} onChange={e=>setFiltroPac(e.target.value)}/>
             {filtroPac && <button onClick={()=>setFiltroPac("")} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#9CA3AF",fontSize:18}}>×</button>}
           </div>
-          {pendingAlert&&pend.length>0&&esHoy&&!filtroPac && (
-            <div style={{background:"#FFF3CD",border:"1px solid #FBBF24",borderRadius:10,padding:"12px 16px",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
-              <div><span style={{fontWeight:600,fontSize:13,color:"#856404"}}>⚠ {pend.length} evolución{pend.length>1?"es":""} pendiente{pend.length>1?"s":""}</span><div style={{fontSize:12,color:"#92600A",marginTop:2}}>{pend.map(p=>p.nombre).join(", ")}</div></div>
-              <button style={{...s.btn("#D97706"),fontSize:12}} onClick={()=>{handleReminder();setPendingAlert(false);}}>{reminderSent?"✓ Enviado":"Recordatorio"}</button>
+          {allPend.length>0&&!filtroPac && (
+            <div style={{background:"#FFF3CD",border:"1px solid #FBBF24",borderRadius:10,marginBottom:14,overflow:"hidden"}}>
+              <div style={{padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,cursor:"pointer"}} onClick={()=>setShowPendingList(v=>!v)}>
+                <div><span style={{fontWeight:600,fontSize:13,color:"#856404"}}>⚠ {allPend.length} evolución{allPend.length!==1?"es":""} pendiente{allPend.length!==1?"s":""}</span><div style={{fontSize:12,color:"#92600A",marginTop:2}}>Haz clic para ver · sesiones sin evolucionar</div></div>
+                <span style={{fontSize:18,color:"#856404"}}>{showPendingList?"▲":"▼"}</span>
+              </div>
+              {showPendingList && (
+                <div style={{borderTop:"1px solid #FBBF24",maxHeight:260,overflowY:"auto"}}>
+                  {allPend.map(p=>(
+                    <div key={p.id} style={{padding:"10px 16px",borderBottom:"1px solid #FEF3C7",display:"flex",alignItems:"center",gap:10,background:"#FFFBEB",cursor:"pointer"}} onClick={()=>openAtencion(p)}>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:600,color:"#1F2937"}}>{p.nombre}</div>
+                        <div style={{fontSize:12,color:"#92600A"}}>{p.fecha} · {p.hora}</div>
+                      </div>
+                      <span style={{fontSize:12,color:"#D97706",fontWeight:500}}>Evolucionar →</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
           {!filtroPac && (
@@ -362,12 +443,8 @@ function App() {
                 <div style={{padding:"12px 16px",display:"flex",alignItems:"center",gap:12}}>
                   <div style={{fontSize:14,fontWeight:700,color:usuario.color,minWidth:44,cursor:"pointer"}} onClick={()=>openAtencion(p)}>{p.hora}</div>
                   <div style={{flex:1,cursor:"pointer"}} onClick={()=>openAtencion(p)}>
-                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}>
-                      <div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div>
-                      <SesionBadge p={p}/>
-                    </div>
-                    <div style={{fontSize:12,color:"#6B7280"}}>{p.rut}{p.diagnostico ? ` · ${p.diagnostico}` : ""}</div>
-                    <div style={{fontSize:11,color:"#9CA3AF",marginTop:1}}>📍 {p.direccion}{p.comuna?`, ${p.comuna}`:""}</div>
+                    <div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div>
+                    <div style={{fontSize:12,color:"#6B7280"}}>{p.rut}</div>
                     {filtroPac && <div style={{fontSize:11,color:"#9CA3AF"}}>{p.fecha} · {p.hora}</div>}
                   </div>
                   <span style={s.badge(hecho?"#D4EDDA":"#FFF3CD",hecho?"#155724":"#856404")}>{hecho?"Completada":"Pendiente"}</span>
@@ -392,26 +469,19 @@ function App() {
         <div style={s.header}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <button style={s.btnOutline} onClick={()=>setVista(rol==="admin"?"admin":"agenda")}>← Volver</button>
-            <div>
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <p style={s.headerTitle}>{pacienteActivo.nombre}</p>
-                <SesionBadge p={pacienteActivo}/>
-              </div>
-              <p style={s.headerSub}>{pacienteActivo.rut} · {pacienteActivo.hora} · {pacienteActivo.fecha}</p>
-            </div>
+            <div><p style={s.headerTitle}>{pacienteActivo.nombre}</p><p style={s.headerSub}>{pacienteActivo.rut} · {pacienteActivo.hora} · {pacienteActivo.fecha}</p></div>
           </div>
           <div style={{display:"flex",gap:8}}>
             <button style={{...s.btnOutline,fontSize:12}} onClick={()=>openReagendar(pacienteActivo)}>📅 Reagendar</button>
             {evoActual && <button style={{...s.btnOutline,fontSize:12}} onClick={()=>generarPDF(pacienteActivo,evoActual,prof)}>📄 PDF</button>}
-            {historial.length>0 && <button style={s.btnOutline} onClick={()=>setVistaHistorial(!vistaHistorial)}>{vistaHistorial?"Editar":"Historial"}</button>}
+            <button style={{...s.btnOutline,fontSize:12,background:vistaHistorial?"#DCF5EB":"",fontWeight:vistaHistorial?600:400}} onClick={()=>setVistaHistorial(true)}>📋 Informes</button>
+            <button style={{...s.btnOutline,fontSize:12,background:!vistaHistorial?"#DCF5EB":"",fontWeight:!vistaHistorial?600:400}} onClick={()=>setVistaHistorial(false)}>📝 Evolucionar</button>
           </div>
         </div>
         <div style={s.section}>
           <div style={{background:"#F0F9F5",border:"1px solid #9FE1CB",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:13}}>
-            {pacienteActivo.diagnostico && <div style={{marginBottom:4}}><span style={{fontWeight:600}}>Diagnóstico:</span> {pacienteActivo.diagnostico}</div>}
             <div><span style={{fontWeight:600}}>Dirección:</span> {pacienteActivo.direccion}{pacienteActivo.comuna ? `, ${pacienteActivo.comuna}` : ""}</div>
             <div><span style={{fontWeight:600}}>Email:</span> {pacienteActivo.email}</div>
-            {(pacienteActivo.sesion_numero||pacienteActivo.sesiones_total) && <div><span style={{fontWeight:600}}>Sesión:</span> {pacienteActivo.sesion_numero||"?"} de {pacienteActivo.sesiones_total||"?"}</div>}
           </div>
           {vistaHistorial ? (
             <div>
@@ -430,7 +500,8 @@ function App() {
             </div>
           ) : (
             <div>
-              <p style={{fontWeight:600,fontSize:15,marginBottom:14}}>Evolución de la atención</p>
+              <p style={{fontWeight:600,fontSize:15,marginBottom:14}}>{evoActual?"Editar evolución":"Evolución de la atención"}</p>
+              {evoActual && <div style={{background:"#FFF8E1",border:"1px solid #FFD54F",borderRadius:8,padding:"8px 12px",marginBottom:14,fontSize:12,color:"#795548"}}>✏️ Esta sesión ya tiene una evolución guardada. Puedes editarla aquí o ver el historial completo en <strong>Informes</strong>.</div>}
               {[["anamnesis","Anamnesis","Motivo de consulta..."],["procedimientos","Procedimientos realizados","Técnicas aplicadas..."],["postSesion","Post sesión","Evolución, indicaciones..."]].map(([key,lbl,ph])=>(
                 <div key={key} style={{marginBottom:14}}>
                   <label style={s.label}>{lbl}</label>
@@ -438,7 +509,7 @@ function App() {
                 </div>
               ))}
               <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
-                <button style={s.btn(color)} onClick={handleGuardar}>Guardar evolución</button>
+                <button style={s.btn(color)} onClick={handleGuardar}>{evoActual?"Guardar cambios":"Guardar evolución"}</button>
                 {guardado && <span style={{fontSize:13,color:"#1D9E75",fontWeight:500}}>✓ Guardado en Supabase</span>}
                 {emailStatus==="ok" && <span style={{fontSize:12,color:"#1D9E75"}}>✉ Registrado en historial</span>}
               </div>
@@ -470,7 +541,7 @@ function App() {
       const toCSV=rows=>!rows.length?"":Object.keys(rows[0]).join(",")+"\n"+rows.map(r=>Object.values(r).map(v=>`"${v}"`).join(",")).join("\n");
       const fecha=new Date().toLocaleDateString("es-CL").replace(/\//g,"-");
       const contenido=["RESUMEN REHAB HOME - "+fecha,"","=== ATENCIONES ===",toCSV(r1),"","=== ESPECIALIDADES ===",toCSV(r2),"","=== EMAILS ===",toCSV(r3),"",`Total Pacientes,${pacientes.length}`,`Evoluciones,${evoluciones.length}`,`Pendientes,${pacientes.filter(p=>!getEvo(p.id)).length}`].join("\n");
-      const blob=new Blob(["﻿"+contenido],{type:"text/csv;charset=utf-8;"});
+      const blob=new Blob(["\uFEFF"+contenido],{type:"text/csv;charset=utf-8;"});
       const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`rehabhome_${fecha}.csv`;a.click();URL.revokeObjectURL(url);
     };
     return (
@@ -500,15 +571,7 @@ function App() {
                 <div key={p.id} style={s.card}>
                   <div style={{padding:"11px 16px",display:"flex",alignItems:"center",gap:12}}>
                     <div style={{fontSize:14,fontWeight:700,color:profSelec.color,minWidth:44,cursor:"pointer"}} onClick={()=>openAtencion(p)}>{p.hora}</div>
-                    <div style={{flex:1,cursor:"pointer"}} onClick={()=>openAtencion(p)}>
-                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}>
-                        <div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div>
-                        <SesionBadge p={p}/>
-                      </div>
-                      <div style={{fontSize:12,color:"#6B7280"}}>{p.rut} · {p.fecha}</div>
-                      <div style={{fontSize:11,color:"#9CA3AF",marginTop:1}}>📍 {p.direccion}{p.comuna?`, ${p.comuna}`:""}</div>
-                      {p.diagnostico && <div style={{fontSize:11,color:"#6B7280",fontStyle:"italic",marginTop:1}}>{p.diagnostico}</div>}
-                    </div>
+                    <div style={{flex:1,cursor:"pointer"}} onClick={()=>openAtencion(p)}><div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div><div style={{fontSize:12,color:"#6B7280"}}>{p.rut} · {p.fecha}</div></div>
                     <span style={s.badge(hecho?"#D4EDDA":"#FFF3CD",hecho?"#155724":"#856404")}>{hecho?"Completada":"Pendiente"}</span>
                     <button style={{...s.btnOutline,fontSize:12,padding:"5px 10px"}} onClick={()=>openReagendar(p)}>Reagendar</button>
                   </div>
@@ -553,9 +616,51 @@ function App() {
         {adminTab==="pacientes" && (
           <div style={s.section}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-              <p style={{margin:0,fontWeight:600}}>Pacientes ({pacientes.length})</p>
-              <button style={s.btn("#1a6b8a")} onClick={()=>setShowNewPac(!showNewPac)}>+ Agregar</button>
+              <p style={{margin:0,fontWeight:600}}>Pacientes ({[...new Set(pacientes.map(p=>p.rut))].length})</p>
+              <div style={{display:"flex",gap:8}}>
+                <button style={{...s.btnOutline,fontSize:12}} onClick={()=>{setShowImport(v=>!v);setShowNewPac(false);setPasteText('');setImportPreview(null);}}>📋 Importar Excel</button>
+                <button style={s.btn("#1a6b8a")} onClick={()=>{setShowNewPac(!showNewPac);setShowImport(false);}}>+ Agregar</button>
+              </div>
             </div>
+            {showImport && (
+              <div style={{...s.card,padding:16,marginBottom:14,background:"#F0F4FF"}}>
+                <p style={{fontWeight:600,fontSize:14,margin:"0 0 8px"}}>📋 Importar desde Excel</p>
+                <p style={{fontSize:12,color:"#6B7280",margin:"0 0 10px"}}>Copia las filas de tu Excel (incluyendo la fila de cabecera) y pégalas aquí.</p>
+                {!importPreview ? (<>
+                  <textarea style={{...s.textarea,minHeight:100,fontFamily:"monospace",fontSize:11}} value={pasteText} onChange={e=>setPasteText(e.target.value)} placeholder={"ID\tFecha y Hora Recepción\t...\nPegar aquí con Ctrl+V"}/>
+                  <div style={{display:"flex",gap:8,marginTop:10}}>
+                    <button style={s.btn("#4F46E5")} onClick={()=>{const rows=parseExcelPaste(pasteText,profesionales);setImportPreview(rows.length?rows:null);if(!rows.length)alert("No se encontraron filas válidas. Asegúrate de pegar incluyendo la cabecera.");}} disabled={!pasteText.trim()}>Procesar</button>
+                    <button style={s.btnOutline} onClick={()=>{setShowImport(false);setPasteText('');}}>Cancelar</button>
+                  </div>
+                </>) : (<>
+                  <p style={{fontSize:13,fontWeight:600,marginBottom:8,color:"#155724"}}>{importPreview.length} sesión{importPreview.length!==1?"es":""} detectada{importPreview.length!==1?"s":""}</p>
+                  <div style={{overflowX:"auto",marginBottom:10}}>
+                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                      <thead><tr style={{background:"#E0E7FF"}}>{["Nombre","RUT","Fecha","Hora","Profesional","Diag","Estado"].map(h=><th key={h} style={{padding:"4px 8px",textAlign:"left",fontWeight:600}}>{h}</th>)}</tr></thead>
+                      <tbody>
+                        {importPreview.map((r,i)=>(
+                          <tr key={i} style={{background:r._ok?"#F0FFF4":"#FFF3CD",borderBottom:"1px solid #E5E7EB"}}>
+                            <td style={{padding:"4px 8px"}}>{r.nombre}</td>
+                            <td style={{padding:"4px 8px"}}>{r.rut}</td>
+                            <td style={{padding:"4px 8px"}}>{r.fecha}</td>
+                            <td style={{padding:"4px 8px"}}>{r.hora}</td>
+                            <td style={{padding:"4px 8px",color:r.profesional_id?"inherit":"#D97706"}}>{r.profesional_id?r.profNombre:`⚠ ${r.profNombre||"Sin asignar"}`}</td>
+                            <td style={{padding:"4px 8px"}}>{r.diagnostico}</td>
+                            <td style={{padding:"4px 8px"}}>{r._ok?"✓":"⚠ revisar"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {importPreview.some(r=>!r._ok) && <p style={{fontSize:12,color:"#92600A",marginBottom:8}}>⚠ Las filas en amarillo tienen datos incompletos (profesional no encontrado o fecha/RUT faltante). Igual se importarán.</p>}
+                  <div style={{display:"flex",gap:8}}>
+                    <button style={s.btn("#155724")} onClick={handleImport} disabled={importando}>{importando?"Importando...":"✓ Importar "+importPreview.length+" sesiones"}</button>
+                    <button style={s.btnOutline} onClick={()=>setImportPreview(null)}>← Volver</button>
+                    <button style={s.btnOutline} onClick={()=>{setShowImport(false);setPasteText('');setImportPreview(null);}}>Cancelar</button>
+                  </div>
+                </>)}
+              </div>
+            )}
             {showNewPac && (
               <div style={{...s.card,padding:16,marginBottom:14,background:"#F0FDF4"}}>
                 <p style={{fontWeight:600,fontSize:14,margin:"0 0 12px"}}>Nuevo paciente</p>
@@ -563,12 +668,9 @@ function App() {
                   {[["nombre","Nombre"],["rut","RUT"],["email","Email"],["direccion","Dirección"],["hora","Hora"],["fecha","Fecha"]].map(([k,lbl])=>(<div key={k}><label style={s.label}>{lbl}</label><input style={s.input} value={newPac[k]} onChange={e=>setNewPac(f=>({...f,[k]:e.target.value}))}/></div>))}
                   <div><label style={s.label}>Comuna</label><select style={s.input} value={newPac.comuna} onChange={e=>setNewPac(f=>({...f,comuna:e.target.value}))}><option value="">Seleccionar...</option>{COMUNAS.map(c=><option key={c}>{c}</option>)}</select></div>
                   <div><label style={s.label}>Profesional</label><select style={s.input} value={newPac.profesionalId} onChange={e=>setNewPac(f=>({...f,profesionalId:e.target.value}))}><option value="">Seleccionar...</option>{profesionales.filter(p=>p.activo).map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div>
-                  <div style={{gridColumn:"1/-1"}}><label style={s.label}>Diagnóstico</label><input style={s.input} value={newPac.diagnostico} placeholder="Ej: Fractura cadera, ACV, Parkinson..." onChange={e=>setNewPac(f=>({...f,diagnostico:e.target.value}))}/></div>
-                  <div><label style={s.label}>Sesión N°</label><input type="number" min="1" style={s.input} value={newPac.sesion_numero} onChange={e=>setNewPac(f=>({...f,sesion_numero:e.target.value}))}/></div>
-                  <div><label style={s.label}>Total sesiones</label><input type="number" min="1" style={s.input} value={newPac.sesiones_total} placeholder="Ej: 10" onChange={e=>setNewPac(f=>({...f,sesiones_total:e.target.value}))}/></div>
                 </div>
                 <div style={{display:"flex",gap:8,marginTop:12}}>
-                  <button style={s.btn("#1a6b8a")} onClick={async()=>{ if(!newPac.nombre||!newPac.rut||!newPac.email||!newPac.profesionalId)return; const row=await db.post("pacientes",{nombre:newPac.nombre,rut:newPac.rut,email:newPac.email,direccion:newPac.direccion,comuna:newPac.comuna,hora:newPac.hora,fecha:newPac.fecha,profesional_id:newPac.profesionalId,diagnostico:newPac.diagnostico,sesion_numero:newPac.sesion_numero||1,sesiones_total:newPac.sesiones_total||null}); if(Array.isArray(row)&&row[0])setPacientes(prev=>[...prev,row[0]]); setNewPac({nombre:"",rut:"",direccion:"",comuna:"",email:"",profesionalId:"",hora:"",fecha:HOY,diagnostico:"",sesion_numero:1,sesiones_total:""});setShowNewPac(false); }}>Guardar</button>
+                  <button style={s.btn("#1a6b8a")} onClick={async()=>{ if(!newPac.nombre||!newPac.rut||!newPac.email||!newPac.profesionalId)return;                   const row=await db.post("pacientes",{nombre:newPac.nombre,rut:newPac.rut,email:newPac.email,direccion:newPac.direccion,comuna:newPac.comuna,hora:newPac.hora,fecha:newPac.fecha,profesional_id:newPac.profesionalId}); if(Array.isArray(row)&&row[0])setPacientes(prev=>[...prev,row[0]]); setNewPac({nombre:"",rut:"",direccion:"",comuna:"",email:"",profesionalId:"",hora:"",fecha:HOY});setShowNewPac(false); }}>Guardar</button>
                   <button style={s.btnOutline} onClick={()=>setShowNewPac(false)}>Cancelar</button>
                 </div>
               </div>
@@ -579,30 +681,18 @@ function App() {
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                   {[["nombre","Nombre"],["rut","RUT"],["email","Email"],["direccion","Dirección"]].map(([k,lbl])=>(<div key={k}><label style={s.label}>{lbl}</label><input style={s.input} value={editingPac[k]||""} onChange={e=>setEditingPac(f=>({...f,[k]:e.target.value}))}/></div>))}
                   <div><label style={s.label}>Comuna</label><select style={s.input} value={editingPac.comuna||""} onChange={e=>setEditingPac(f=>({...f,comuna:e.target.value}))}><option value="">Seleccionar...</option>{COMUNAS.map(c=><option key={c}>{c}</option>)}</select></div>
-                  <div></div>
-                  <div style={{gridColumn:"1/-1"}}><label style={s.label}>Diagnóstico</label><input style={s.input} value={editingPac.diagnostico||""} onChange={e=>setEditingPac(f=>({...f,diagnostico:e.target.value}))}/></div>
-                  <div><label style={s.label}>Sesión N°</label><input type="number" min="1" style={s.input} value={editingPac.sesion_numero||""} onChange={e=>setEditingPac(f=>({...f,sesion_numero:e.target.value}))}/></div>
-                  <div><label style={s.label}>Total sesiones</label><input type="number" min="1" style={s.input} value={editingPac.sesiones_total||""} onChange={e=>setEditingPac(f=>({...f,sesiones_total:e.target.value}))}/></div>
                 </div>
                 <div style={{display:"flex",gap:8,marginTop:12}}>
-                  <button style={s.btn("#378ADD")} onClick={async()=>{ const row=await db.patch("pacientes",editingPac.id,{nombre:editingPac.nombre,rut:editingPac.rut,email:editingPac.email,direccion:editingPac.direccion,comuna:editingPac.comuna,diagnostico:editingPac.diagnostico,sesion_numero:editingPac.sesion_numero||1,sesiones_total:editingPac.sesiones_total||null}); if(Array.isArray(row)&&row[0])setPacientes(prev=>prev.map(p=>p.id===editingPac.id?row[0]:p)); setEditingPac(null); }}>Guardar</button>
+                  <button style={s.btn("#378ADD")} onClick={async()=>{                   const row=await db.patch("pacientes",editingPac.id,{nombre:editingPac.nombre,rut:editingPac.rut,email:editingPac.email,direccion:editingPac.direccion,comuna:editingPac.comuna}); if(Array.isArray(row)&&row[0])setPacientes(prev=>prev.map(p=>p.id===editingPac.id?row[0]:p)); setEditingPac(null); }}>Guardar</button>
                   <button style={s.btnOutline} onClick={()=>setEditingPac(null)}>Cancelar</button>
                 </div>
               </div>
             )}
-            {pacientes.map(p=>{
+            {[...new Map([...pacientes].sort((a,b)=>new Date(b.fecha||0)-new Date(a.fecha||0)).map(p=>[p.rut,p])).values()].map(p=>{
               const prof=profesionales.find(pr=>pr.id===p.profesional_id);
               return (
                 <div key={p.id} style={{...s.card,padding:"11px 16px",display:"flex",alignItems:"center",gap:12}}>
-                  <div style={{flex:1}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      <div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div>
-                      <SesionBadge p={p}/>
-                    </div>
-                    <div style={{fontSize:12,color:"#6B7280"}}>{p.rut} · {p.email}</div>
-                    {p.diagnostico && <div style={{fontSize:11,color:"#6B7280",fontStyle:"italic"}}>{p.diagnostico}</div>}
-                    <div style={{fontSize:11,color:"#9CA3AF"}}>{prof?prof.nombre:"-"} · {p.hora} · {p.fecha}</div>
-                  </div>
+                  <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div><div style={{fontSize:12,color:"#6B7280"}}>{p.rut} · {p.email}</div><div style={{fontSize:11,color:"#9CA3AF"}}>{prof?prof.nombre:"-"} · {p.hora} · {p.fecha}</div></div>
                   <button style={s.btnOutline} onClick={()=>setEditingPac({...p})}>Editar</button>
                   <button style={{...s.btnOutline,fontSize:12,padding:"5px 10px"}} onClick={()=>openReagendar(p)}>Reagendar</button>
                   <button style={{...s.btnOutline,fontSize:12}} onClick={()=>openAtencion(p)}>Ver</button>
