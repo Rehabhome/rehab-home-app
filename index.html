@@ -187,7 +187,19 @@ const parseExcelPaste = (text, profesionales) => {
   return dataRows.map((c,i) => {
     const g = k => { const ki=cols[k]; return ki>=0&&ki!=null ? (c[ki]||'').trim() : ''; };
     const profNombre = g('prof');
-    const profMatch = profesionales.find(p=>norm(p.nombre)===norm(profNombre)||normName(p.nombre)===normName(profNombre));
+    const matchProf = excelNombre => {
+      const en=norm(excelNombre); const eParts=en.split(' ').filter(Boolean);
+      return profesionales.find(p=>{
+        const pn=norm(p.nombre); const pParts=pn.split(' ').filter(Boolean);
+        if(pn===en) return true;                                              // exacto
+        if(normName(p.nombre)===normName(excelNombre)) return true;          // primer nombre + 2 apellidos
+        if(pParts.length&&pParts.every(w=>eParts.includes(w))) return true;  // todas las palabras del app están en el Excel
+        if(eParts.length&&eParts.every(w=>pParts.includes(w))) return true;  // todas las palabras del Excel están en el app
+        if(pParts[0]===eParts[0]&&pParts[pParts.length-1]===eParts[eParts.length-1]) return true; // primer nombre + último apellido
+        return false;
+      });
+    };
+    const profMatch = matchProf(profNombre);
     const row = {
       _idx:i, nombre:g('nombre'), rut:g('rut'), email:g('email'),
       direccion:g('dir'), comuna:g('com'),
