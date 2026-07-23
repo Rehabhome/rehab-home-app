@@ -154,35 +154,46 @@ const parseTSV = text => {
   return rows;
 };
 const norm = s => (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[\s\n\r]+/g,' ').trim();
+// Columnas fijas del Excel del usuario (índice 0-based):
+// 0:ID 1:FHRecep 2:FHEmail 3:Remitente 4:InstDeriv 5:ProfDeriv 6:Asunto
+// 7:TipoPac 8:CanalVenta 9:IsapreFonasa 10:NombrePac 11:RUTPac
+// 12:FechaNac 13:Edad 14:Telefono 15:Dirección 16:Comuna 17:Diagnóstico
+// 18:Servicio 19:Urgencia 20:Observaciones 21:Estado 22:ProfAsignado
+// 23:NSesión 24:TotalSesiones 25:FechaVisita 26:HoraVisita 27:EstadoVisita
+// 28:NFactura 29:FechaPago 30:ValorPrest 31:ValorPagoPro 32:Mail
+const FIXED_COLS = {nombre:10,rut:11,tel:14,dir:15,com:16,diag:17,prof:22,fecha:25,hora:26,email:32};
 const parseExcelPaste = (text, profesionales) => {
   const rows = parseTSV(text);
-  if (rows.length < 2) return [];
-  const headers = rows[0].map(norm);
-  const idx = (...terms) => { for(const t of terms){ const i=headers.findIndex(h=>h.includes(t)); if(i>=0)return i; } return -1; };
-  const cols = {
-    nombre: idx('nombre paciente','nombre'),
-    rut:    idx('rut paciente','rut'),
-    email:  idx('mail','email','correo'),
-    dir:    idx('direcci'),
-    com:    idx('comuna'),
-    fecha:  idx('fecha visita'),
-    hora:   idx('hora visita','hora visita'),
-    prof:   idx('profesional asignado','profesional asignado'),
-    diag:   idx('diagn'),
-    tel:    idx('tel'),
-  };
-  return rows.slice(1).map((c,i) => {
-    const g = k => cols[k]>=0 ? (c[cols[k]]||'').trim() : '';
+  if (rows.length < 1) return [];
+  // Detectar si la primera fila es cabecera
+  const firstNorm = rows[0].map(norm);
+  const isHeader = firstNorm.some(h=>h.includes('nombre')&&h.includes('paciente')) ||
+                   firstNorm.some(h=>h==='id'||h==='nombre paciente');
+  let cols, dataRows;
+  if (isHeader) {
+    const idx = (...terms) => { for(const t of terms){ const i=firstNorm.findIndex(h=>h.includes(t)); if(i>=0)return i; } return -1; };
+    cols = {
+      nombre:idx('nombre paciente'),rut:idx('rut paciente'),email:idx('mail','correo'),
+      dir:idx('direcci'),com:idx('comuna'),fecha:idx('fecha visita'),
+      hora:idx('hora visita'),prof:idx('profesional asignado'),diag:idx('diagn'),tel:idx('tel'),
+    };
+    dataRows = rows.slice(1);
+  } else {
+    cols = FIXED_COLS;
+    dataRows = rows;
+  }
+  return dataRows.map((c,i) => {
+    const g = k => { const ki=cols[k]; return ki>=0&&ki!=null ? (c[ki]||'').trim() : ''; };
     const profNombre = g('prof');
     const profMatch = profesionales.find(p=>norm(p.nombre)===norm(profNombre));
     const row = {
       _idx:i, nombre:g('nombre'), rut:g('rut'), email:g('email'),
       direccion:g('dir'), comuna:g('com'),
       fecha:parseImportDate(g('fecha')), hora:parseImportHora(g('hora')),
-      profesional_id: profMatch?profMatch.id:null,
+      profesional_id:profMatch?profMatch.id:null,
       profNombre, diagnostico:g('diag'), telefono:g('tel'),
     };
-    row._ok = !!(row.nombre && row.rut && row.fecha && row.profesional_id);
+    row._ok = !!(row.nombre&&row.rut&&row.fecha&&row.profesional_id);
     return row;
   }).filter(r=>r.nombre&&r.rut);
 };
@@ -660,7 +671,7 @@ function App() {
             {showImport && (
               <div style={{...s.card,padding:16,marginBottom:14,background:"#F0F4FF"}}>
                 <p style={{fontWeight:600,fontSize:14,margin:"0 0 8px"}}>📋 Importar desde Excel</p>
-                <p style={{fontSize:12,color:"#6B7280",margin:"0 0 10px"}}>Copia las filas de tu Excel (incluyendo la fila de cabecera) y pégalas aquí.</p>
+                <p style={{fontSize:12,color:"#6B7280",margin:"0 0 10px"}}>Copia las filas de tu Excel y pégalas aquí. Con o sin cabecera.</p>
                 {!importPreview ? (<>
                   <textarea style={{...s.textarea,minHeight:100,fontFamily:"monospace",fontSize:11}} value={pasteText} onChange={e=>setPasteText(e.target.value)} placeholder={"ID\tFecha y Hora Recepción\t...\nPegar aquí con Ctrl+V"}/>
                   <div style={{display:"flex",gap:8,marginTop:10}}>
