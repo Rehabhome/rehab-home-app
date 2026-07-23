@@ -154,6 +154,8 @@ const parseTSV = text => {
   return rows;
 };
 const norm = s => (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[\s\n\r]+/g,' ').trim();
+// "Carolina Andrea Arraño Meneses" → "carolina arraño meneses" (primer nombre + 2 apellidos, sin segundo nombre)
+const normName = s => { const p=norm(s).split(' ').filter(Boolean); return p.length<=3?p.join(' '):[p[0],p[p.length-2],p[p.length-1]].join(' '); };
 // Columnas fijas del Excel del usuario (índice 0-based):
 // 0:ID 1:FHRecep 2:FHEmail 3:Remitente 4:InstDeriv 5:ProfDeriv 6:Asunto
 // 7:TipoPac 8:CanalVenta 9:IsapreFonasa 10:NombrePac 11:RUTPac
@@ -185,7 +187,7 @@ const parseExcelPaste = (text, profesionales) => {
   return dataRows.map((c,i) => {
     const g = k => { const ki=cols[k]; return ki>=0&&ki!=null ? (c[ki]||'').trim() : ''; };
     const profNombre = g('prof');
-    const profMatch = profesionales.find(p=>norm(p.nombre)===norm(profNombre));
+    const profMatch = profesionales.find(p=>norm(p.nombre)===norm(profNombre)||normName(p.nombre)===normName(profNombre));
     const row = {
       _idx:i, nombre:g('nombre'), rut:g('rut'), email:g('email'),
       direccion:g('dir'), comuna:g('com'),
