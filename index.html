@@ -134,11 +134,31 @@ const parseImportHora = h => {
   const m = String(h).match(/(\d{1,2}):(\d{2})/);
   return m ? `${m[1].padStart(2,'0')}:${m[2]}` : '';
 };
+// Parser TSV real: maneja celdas con saltos de línea y comillas (formato Excel)
+const parseTSV = text => {
+  const rows=[]; let row=[]; let field=''; let q=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i],n=text[i+1];
+    if(q){
+      if(c==='"'&&n==='"'){field+='"';i++;}
+      else if(c==='"'){q=false;}
+      else{field+=c;}
+    } else {
+      if(c==='"'){q=true;}
+      else if(c==='\t'){row.push(field);field='';}
+      else if(c==='\n'){row.push(field);if(row.some(f=>f.trim()))rows.push(row);row=[];field='';}
+      else if(c!=='\r'){field+=c;}
+    }
+  }
+  if(field||row.length){row.push(field);if(row.some(f=>f.trim()))rows.push(row);}
+  return rows;
+};
+const norm = s => (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[\s\n\r]+/g,' ').trim();
 const parseExcelPaste = (text, profesionales) => {
-  const lines = text.split('\n').map(l=>l.trimEnd()).filter(l=>l.trim());
-  if (lines.length < 2) return [];
-  const headers = lines[0].split('\t').map(h=>h.trim().toLowerCase().replace(/[\s\n"]+/g,' '));
-  const idx = (...terms) => { for (const t of terms){ const i=headers.findIndex(h=>h.includes(t)); if(i>=0)return i; } return -1; };
+  const rows = parseTSV(text);
+  if (rows.length < 2) return [];
+  const headers = rows[0].map(norm);
+  const idx = (...terms) => { for(const t of terms){ const i=headers.findIndex(h=>h.includes(t)); if(i>=0)return i; } return -1; };
   const cols = {
     nombre: idx('nombre paciente','nombre'),
     rut:    idx('rut paciente','rut'),
@@ -146,16 +166,15 @@ const parseExcelPaste = (text, profesionales) => {
     dir:    idx('direcci'),
     com:    idx('comuna'),
     fecha:  idx('fecha visita'),
-    hora:   idx('hora visita','hora'),
-    prof:   idx('profesional asignado','profesional'),
+    hora:   idx('hora visita','hora visita'),
+    prof:   idx('profesional asignado','profesional asignado'),
     diag:   idx('diagn'),
     tel:    idx('tel'),
   };
-  return lines.slice(1).map((line,i) => {
-    const c = line.split('\t');
+  return rows.slice(1).map((c,i) => {
     const g = k => cols[k]>=0 ? (c[cols[k]]||'').trim() : '';
     const profNombre = g('prof');
-    const profMatch = profesionales.find(p=>p.nombre?.toLowerCase()===profNombre.toLowerCase());
+    const profMatch = profesionales.find(p=>norm(p.nombre)===norm(profNombre));
     const row = {
       _idx:i, nombre:g('nombre'), rut:g('rut'), email:g('email'),
       direccion:g('dir'), comuna:g('com'),
@@ -195,6 +214,7 @@ function App() {
   const [reminderSent,setReminderSent] = useState(false);
   const [vistaHistorial,setVistaHistorial] = useState(false);
   const [editingPac,setEditingPac] = useState(null);
+  const [editingProf,setEditingProf] = useState(null);
   const [emailFilter,setEmailFilter] = useState("todos");
   const [fechaSel,setFechaSel] = useState(HOY);
   const [filtroPac,setFiltroPac] = useState("");
@@ -602,11 +622,26 @@ function App() {
                 <p style={{fontSize:11,color:"#6B7280",marginTop:8}}>Clave = primeros 5 dígitos del RUT.</p>
               </div>
             )}
+            {editingProf && (
+              <div style={{...s.card,padding:16,marginBottom:14,background:"#EFF6FF"}}>
+                <p style={{fontWeight:600,fontSize:14,margin:"0 0 12px"}}>Editar profesional</p>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                  {[["nombre","Nombre"],["rut","RUT"],["email","Email"]].map(([k,lbl])=>(<div key={k}><label style={s.label}>{lbl}</label><input style={s.input} value={editingProf[k]||""} onChange={e=>setEditingProf(f=>({...f,[k]:e.target.value}))}/></div>))}
+                  <div><label style={s.label}>Especialidad</label><select style={s.input} value={editingProf.especialidad||""} onChange={e=>setEditingProf(f=>({...f,especialidad:e.target.value}))}>{ESPECIALIDADES.map(e=><option key={e}>{e}</option>)}</select></div>
+                  <div><label style={s.label}>Color</label><div style={{display:"flex",gap:6,marginTop:4}}>{COLORES.map(c=><div key={c} onClick={()=>setEditingProf(f=>({...f,color:c}))} style={{width:24,height:24,borderRadius:"50%",background:c,cursor:"pointer",border:editingProf.color===c?"3px solid #1a1a2e":"2px solid transparent"}}/>)}</div></div>
+                </div>
+                <div style={{display:"flex",gap:8,marginTop:12}}>
+                  <button style={s.btn("#378ADD")} onClick={async()=>{ const row=await db.patch("profesionales",editingProf.id,{nombre:editingProf.nombre,rut:editingProf.rut,email:editingProf.email,especialidad:editingProf.especialidad,color:editingProf.color}); if(Array.isArray(row)&&row[0])setProfesionales(prev=>prev.map(x=>x.id===editingProf.id?row[0]:x)); setEditingProf(null); }}>Guardar</button>
+                  <button style={s.btnOutline} onClick={()=>setEditingProf(null)}>Cancelar</button>
+                </div>
+              </div>
+            )}
             {profesionales.map(p=>(
               <div key={p.id} style={{...s.card,padding:"12px 16px",display:"flex",alignItems:"center",gap:12}}>
                 <div style={{width:36,height:36,borderRadius:"50%",background:p.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:p.color,flexShrink:0}}>{p.nombre.split(" ").map(n=>n[0]).join("").slice(0,2)}</div>
                 <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div><div style={{fontSize:12,color:"#6B7280"}}>{p.especialidad} · {p.rut}</div><div style={{fontSize:11,color:"#9CA3AF"}}>{p.email} · clave: {getPassword(p.rut)}</div></div>
                 <span style={s.badge(p.activo?"#D4EDDA":"#F3F4F6",p.activo?"#155724":"#6B7280")}>{p.activo?"Activo":"Inactivo"}</span>
+                <button style={s.btnOutline} onClick={()=>setEditingProf(editingProf?.id===p.id?null:{...p})}>Editar</button>
                 <button style={p.activo?s.btnDanger:s.btnSuccess} onClick={async()=>{ const row=await db.patch("profesionales",p.id,{activo:!p.activo}); if(Array.isArray(row)&&row[0])setProfesionales(prev=>prev.map(x=>x.id===p.id?row[0]:x)); }}>{p.activo?"Inactivar":"Activar"}</button>
               </div>
             ))}
