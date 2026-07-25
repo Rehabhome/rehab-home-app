@@ -238,6 +238,7 @@ function App() {
   const [pendingAlert,setPendingAlert] = useState(false);
   const [reminderSent,setReminderSent] = useState(false);
   const [vistaHistorial,setVistaHistorial] = useState(false);
+  const [vistaInformes,setVistaInformes] = useState(false);
   const [editingPac,setEditingPac] = useState(null);
   const [editingProf,setEditingProf] = useState(null);
   const [emailFilter,setEmailFilter] = useState("todos");
@@ -344,7 +345,7 @@ function App() {
 
   const openReagendar = p => { setReagendando(p);setReagendaForm({fecha:p.fecha,hora:p.hora,profesionalId:p.profesional_id,motivo:""}); };
   const openAtencion = p => {
-    setPacienteActivo(p);setVistaHistorial(!!evoluciones.find(e=>e.paciente_id===p.id));
+    setPacienteActivo(p);setVistaHistorial(false);setVistaInformes(false);
     const evo=getEvo(p.id);
     setForm(evo?{anamnesis:evo.anamnesis,procedimientos:evo.procedimientos,postSesion:evo.post_sesion}:{anamnesis:"",procedimientos:"",postSesion:""});
     setGuardado(false);setEmailStatus(null);setVista("atencion");
@@ -519,8 +520,8 @@ function App() {
           <div style={{display:"flex",gap:8}}>
             <button style={{...s.btnOutline,fontSize:12}} onClick={()=>openReagendar(pacienteActivo)}>📅 Reagendar</button>
             {evoActual && <button style={{...s.btnOutline,fontSize:12}} onClick={()=>generarPDF(pacienteActivo,evoActual,prof)}>📄 PDF</button>}
-            <button style={{...s.btnOutline,fontSize:12,background:vistaHistorial?"#DCF5EB":"",fontWeight:vistaHistorial?600:400}} onClick={()=>setVistaHistorial(true)}>📋 Informes</button>
-            <button style={{...s.btnOutline,fontSize:12,background:!vistaHistorial?"#DCF5EB":"",fontWeight:!vistaHistorial?600:400}} onClick={()=>setVistaHistorial(false)}>📝 Evolucionar</button>
+            <button style={{...s.btnOutline,fontSize:12,background:vistaInformes?"#DCF5EB":"",fontWeight:vistaInformes?600:400}} onClick={()=>{setVistaInformes(true);setVistaHistorial(false);}}>📋 Informes</button>
+            <button style={{...s.btnOutline,fontSize:12,background:(!vistaInformes&&!vistaHistorial)?"#DCF5EB":"",fontWeight:(!vistaInformes&&!vistaHistorial)?600:400}} onClick={()=>{setVistaInformes(false);setVistaHistorial(false);}}>📝 Evolucionar</button>
           </div>
         </div>
         <div style={s.section}>
@@ -528,10 +529,12 @@ function App() {
             <div><span style={{fontWeight:600}}>Dirección:</span> {pacienteActivo.direccion}{pacienteActivo.comuna ? `, ${pacienteActivo.comuna}` : ""}</div>
             <div><span style={{fontWeight:600}}>Email:</span> {pacienteActivo.email}</div>
           </div>
-          {vistaHistorial ? (
+          {vistaInformes ? (
             <div>
-              <p style={{fontWeight:600,marginBottom:10}}>Historial de evoluciones</p>
-              {historial.map(evo=>(
+              <p style={{fontWeight:600,marginBottom:10}}>📋 Informes del paciente</p>
+              {historial.length===0 ? (
+                <div style={{textAlign:"center",padding:"32px 0",color:"#9CA3AF"}}><div style={{fontSize:32,marginBottom:8}}>📄</div><div style={{fontSize:14}}>Sin evoluciones registradas aún</div></div>
+              ) : historial.map(evo=>(
                 <div key={evo.id} style={{...s.card,padding:14}}>
                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
                     <span style={{fontSize:12,color:"#6B7280"}}>{evo.fecha} · {evo.hora}</span>
@@ -546,7 +549,6 @@ function App() {
           ) : (
             <div>
               <p style={{fontWeight:600,fontSize:15,marginBottom:14}}>{evoActual?"Editar evolución":"Evolución de la atención"}</p>
-              {evoActual && <div style={{background:"#FFF8E1",border:"1px solid #FFD54F",borderRadius:8,padding:"8px 12px",marginBottom:14,fontSize:12,color:"#795548"}}>✏️ Esta sesión ya tiene una evolución guardada. Puedes editarla aquí o ver el historial completo en <strong>Informes</strong>.</div>}
               {[["anamnesis","Anamnesis","Motivo de consulta..."],["procedimientos","Procedimientos realizados","Técnicas aplicadas..."],["postSesion","Post sesión","Evolución, indicaciones..."]].map(([key,lbl,ph])=>(
                 <div key={key} style={{marginBottom:14}}>
                   <label style={s.label}>{lbl}</label>
@@ -555,8 +557,7 @@ function App() {
               ))}
               <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
                 <button style={s.btn(color)} onClick={handleGuardar}>{evoActual?"Guardar cambios":"Guardar evolución"}</button>
-                {guardado && <span style={{fontSize:13,color:"#1D9E75",fontWeight:500}}>✓ Guardado en Supabase</span>}
-                {emailStatus==="ok" && <span style={{fontSize:12,color:"#1D9E75"}}>✉ Registrado en historial</span>}
+                {guardado && <span style={{fontSize:13,color:"#1D9E75",fontWeight:500}}>✓ Guardado</span>}
               </div>
             </div>
           )}
