@@ -119,6 +119,15 @@ function generarPDF(pac, evo, prof) {
   setTimeout(()=>w.print(),500);
 }
 
+// ── Agendar helpers ───────────────────────────────────────────────────────────
+const DIAS_SEMANA = [{id:1,l:"Lun"},{id:2,l:"Mar"},{id:3,l:"Mié"},{id:4,l:"Jue"},{id:5,l:"Vie"},{id:6,l:"Sáb"},{id:0,l:"Dom"}];
+const profDisplayName = nombre => { const p=(nombre||'').trim().split(/\s+/).filter(Boolean); return p.length<=3?p.join(' '):[p[0],p[p.length-2],p[p.length-1]].join(' '); };
+const generarFechasAgendar = (fechaInicio, diasSel, nSesiones) => {
+  const fechas=[]; const d=new Date(fechaInicio+"T12:00:00");
+  if(diasSel.length===0){ for(let i=0;i<nSesiones;i++){fechas.push(d.toISOString().split("T")[0]);d.setDate(d.getDate()+1);} }
+  else{ let s=0; while(fechas.length<nSesiones&&s<366){if(diasSel.includes(d.getDay()))fechas.push(d.toISOString().split("T")[0]);d.setDate(d.getDate()+1);s++;} }
+  return fechas;
+};
 // ── Excel import helpers ──────────────────────────────────────────────────────
 const parseImportDate = d => {
   if (!d) return '';
@@ -252,6 +261,10 @@ function App() {
   const [pasteText,setPasteText] = useState('');
   const [importPreview,setImportPreview] = useState(null);
   const [importando,setImportando] = useState(false);
+  const AGF0 = {nombre:'',rut:'',email:'',direccion:'',comuna:'',diagnostico:'',telefono:'',hora:'',fechaInicio:HOY,nSesiones:1,diasSemana:[],profesionalId:'',profLibre:''};
+  const [showAgendar,setShowAgendar] = useState(false);
+  const [agendarForm,setAgendarForm] = useState(AGF0);
+  const [agendando,setAgendando] = useState(false);
 
   const getPxProf = (profId,fecha) => pacientes.filter(p=>p.profesional_id===profId&&(fecha?p.fecha===fecha:true)).sort((a,b)=>a.hora.localeCompare(b.hora));
   const getEvo = pacId => evoluciones.find(e=>e.paciente_id===pacId);
@@ -291,6 +304,23 @@ function App() {
     const hora = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
     const row = await db.post("email_log",{tipo,destinatario:dest,paciente:pacNom,asunto,estado,fecha:HOY,hora});
     if(Array.isArray(row)&&row[0]) setEmailLog(prev=>[row[0],...prev]);
+  };
+
+  const handleAgendar = async () => {
+    const {nombre,rut,email,direccion,comuna,diagnostico,telefono,hora,fechaInicio,nSesiones,diasSemana,profesionalId} = agendarForm;
+    if(!nombre||!rut||!hora||!fechaInicio||nSesiones<1) return;
+    setAgendando(true);
+    const fechas = generarFechasAgendar(fechaInicio,diasSemana,nSesiones);
+    let ok=0;
+    for(const fecha of fechas){
+      try{
+        const row = await db.post("pacientes",{nombre,rut,email,direccion,comuna,diagnostico,telefono,hora,fecha,profesional_id:profesionalId||null});
+        if(Array.isArray(row)&&row[0]) setPacientes(prev=>[...prev,row[0]]);
+        ok++;
+      }catch(e){}
+    }
+    setAgendando(false); setShowAgendar(false); setAgendarForm(AGF0);
+    alert(`${ok} sesión${ok!==1?"es":""} agendada${ok!==1?"s":""} correctamente.`);
   };
 
   const handleImport = async () => {
@@ -679,8 +709,9 @@ function App() {
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
               <p style={{margin:0,fontWeight:600}}>Pacientes ({[...new Set(pacientes.map(p=>p.rut))].length})</p>
               <div style={{display:"flex",gap:8}}>
-                <button style={{...s.btnOutline,fontSize:12}} onClick={()=>{setShowImport(v=>!v);setShowNewPac(false);setPasteText('');setImportPreview(null);}}>📋 Importar Excel</button>
-                <button style={s.btn("#1a6b8a")} onClick={()=>{setShowNewPac(!showNewPac);setShowImport(false);}}>+ Agregar</button>
+                <button style={{...s.btnOutline,fontSize:12}} onClick={()=>{setShowImport(v=>!v);setShowNewPac(false);setShowAgendar(false);setPasteText('');setImportPreview(null);}}>📋 Importar Excel</button>
+                <button style={{...s.btnOutline,fontSize:12}} onClick={()=>{setShowNewPac(!showNewPac);setShowImport(false);setShowAgendar(false);}}>+ Agregar</button>
+                <button style={s.btn("#1a6b8a")} onClick={()=>{setShowAgendar(v=>!v);setShowNewPac(false);setShowImport(false);}}>📅 Agendar</button>
               </div>
             </div>
             {showImport && (
@@ -720,6 +751,70 @@ function App() {
                     <button style={s.btnOutline} onClick={()=>{setShowImport(false);setPasteText('');setImportPreview(null);}}>Cancelar</button>
                   </div>
                 </>)}
+              </div>
+            )}
+            {showAgendar && (
+              <div style={{...s.card,padding:20,marginBottom:14,background:"#F0F9F5"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+                  <p style={{fontWeight:700,fontSize:15,margin:0}}>📅 Agendar sesiones</p>
+                  <button style={{background:"none",border:"none",cursor:"pointer",fontSize:20,color:"#9CA3AF"}} onClick={()=>setShowAgendar(false)}>×</button>
+                </div>
+                <p style={{...s.label,marginBottom:8}}>Datos del paciente</p>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+                  {[["nombre","Nombre *"],["rut","RUT *"],["email","Email"],["telefono","Teléfono"],["direccion","Dirección"],["diagnostico","Diagnóstico"]].map(([k,lbl])=>(
+                    <div key={k}><label style={s.label}>{lbl}</label><input style={s.input} value={agendarForm[k]} onChange={e=>setAgendarForm(f=>({...f,[k]:e.target.value}))}/></div>
+                  ))}
+                  <div><label style={s.label}>Comuna</label>
+                    <select style={s.input} value={agendarForm.comuna} onChange={e=>setAgendarForm(f=>({...f,comuna:e.target.value}))}>
+                      <option value="">Seleccionar...</option>{COMUNAS.map(c=><option key={c}>{c}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <p style={{...s.label,marginBottom:8}}>Agenda</p>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:12}}>
+                  <div><label style={s.label}>Hora *</label><input type="time" style={s.input} value={agendarForm.hora} onChange={e=>setAgendarForm(f=>({...f,hora:e.target.value}))}/></div>
+                  <div><label style={s.label}>Fecha inicio *</label><input type="date" style={s.input} value={agendarForm.fechaInicio} onChange={e=>setAgendarForm(f=>({...f,fechaInicio:e.target.value}))}/></div>
+                  <div><label style={s.label}>N° sesiones *</label><input type="number" min="1" max="60" style={s.input} value={agendarForm.nSesiones} onChange={e=>setAgendarForm(f=>({...f,nSesiones:Math.max(1,parseInt(e.target.value)||1)}))}/></div>
+                </div>
+                <div style={{marginBottom:14}}>
+                  <label style={s.label}>Días de la semana (sin selección = de corrido)</label>
+                  <div style={{display:"flex",gap:6,marginTop:6,flexWrap:"wrap"}}>
+                    {DIAS_SEMANA.map(d=>{const sel=agendarForm.diasSemana.includes(d.id);return(
+                      <button key={d.id} onClick={()=>{const ds=agendarForm.diasSemana;setAgendarForm(f=>({...f,diasSemana:sel?ds.filter(x=>x!==d.id):[...ds,d.id]}));}} style={{padding:"6px 14px",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:600,background:sel?"#1a6b8a":"#fff",color:sel?"#fff":"#6B7280",border:`1px solid ${sel?"#1a6b8a":"#E5E7EB"}`}}>{d.l}</button>
+                    );})}
+                  </div>
+                  {agendarForm.diasSemana.length===0&&<p style={{fontSize:11,color:"#9CA3AF",marginTop:4}}>Sesiones de corrido: un día tras otro desde la fecha de inicio</p>}
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+                  <div><label style={s.label}>Profesional</label>
+                    <select style={s.input} value={agendarForm.profesionalId} onChange={e=>setAgendarForm(f=>({...f,profesionalId:e.target.value,profLibre:''}))}>
+                      <option value="">En proceso (sin asignar aún)</option>
+                      {profesionales.filter(p=>p.activo).map(p=><option key={p.id} value={p.id}>{profDisplayName(p.nombre)}</option>)}
+                    </select>
+                  </div>
+                  {!agendarForm.profesionalId&&(
+                    <div><label style={s.label}>Nombre profesional en proceso</label>
+                      <input style={s.input} placeholder="Ej: Dra. Carolina Arraño" value={agendarForm.profLibre} onChange={e=>setAgendarForm(f=>({...f,profLibre:e.target.value}))}/>
+                    </div>
+                  )}
+                </div>
+                {agendarForm.nombre&&agendarForm.hora&&agendarForm.fechaInicio&&agendarForm.nSesiones>0&&(
+                  <div style={{background:"#E6F1FB",borderRadius:8,padding:12,marginBottom:14}}>
+                    <p style={{fontSize:12,fontWeight:600,color:"#1a6b8a",marginBottom:8}}>Vista previa — {agendarForm.nSesiones} sesión{agendarForm.nSesiones!==1?"es":""}</p>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                      {generarFechasAgendar(agendarForm.fechaInicio,agendarForm.diasSemana,Math.min(agendarForm.nSesiones,20)).map((f,i)=>(
+                        <span key={i} style={{background:"#fff",borderRadius:6,padding:"3px 10px",fontSize:12,border:"1px solid #C5D9F0"}}>{f} {agendarForm.hora}</span>
+                      ))}
+                      {agendarForm.nSesiones>20&&<span style={{fontSize:12,color:"#6B7280",padding:"3px 6px"}}>+{agendarForm.nSesiones-20} más...</span>}
+                    </div>
+                  </div>
+                )}
+                <div style={{display:"flex",gap:8}}>
+                  <button style={s.btn("#1a6b8a")} onClick={handleAgendar} disabled={agendando||!agendarForm.nombre||!agendarForm.rut||!agendarForm.hora}>
+                    {agendando?"Agendando...":"✓ Confirmar "+agendarForm.nSesiones+" sesión"+(agendarForm.nSesiones!==1?"es":"")}
+                  </button>
+                  <button style={s.btnOutline} onClick={()=>{setShowAgendar(false);setAgendarForm(AGF0);}}>Cancelar</button>
+                </div>
               </div>
             )}
             {showNewPac && (
@@ -833,3 +928,4 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
 </body>
 </html>
+
