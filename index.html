@@ -43,6 +43,13 @@ const db = {
       body:JSON.stringify(body)
     });
     return r.json();
+  },
+  del: async (table, id) => {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+      method:"DELETE",
+      headers:{apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`}
+    });
+    return r.ok;
   }
 };
 
@@ -240,6 +247,7 @@ function App() {
   const [emailStatus,setEmailStatus] = useState(null);
   const [adminTab,setAdminTab] = useState("agenda");
   const [adminProf,setAdminProf] = useState(null);
+  const [expandedRut,setExpandedRut] = useState(null);
   const [showNewProf,setShowNewProf] = useState(false);
   const [showNewPac,setShowNewPac] = useState(false);
   const [newProf,setNewProf] = useState({nombre:"",especialidad:"Kinesiología",rut:"",email:"",color:COLORES[0]});
@@ -846,12 +854,53 @@ function App() {
             )}
             {[...new Map([...pacientes].sort((a,b)=>new Date(b.fecha||0)-new Date(a.fecha||0)).map(p=>[p.rut,p])).values()].map(p=>{
               const prof=profesionales.find(pr=>pr.id===p.profesional_id);
+              const isExpanded=expandedRut===p.rut;
+              const sesiones=pacientes.filter(s=>s.rut===p.rut).sort((a,b)=>new Date(a.fecha||0)-new Date(b.fecha||0));
               return (
-                <div key={p.id} style={{...s.card,padding:"11px 16px",display:"flex",alignItems:"center",gap:12}}>
-                  <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div><div style={{fontSize:12,color:"#6B7280"}}>{p.rut} · {p.email}</div><div style={{fontSize:11,color:"#9CA3AF"}}>{prof?prof.nombre:"-"} · {p.hora} · {p.fecha}</div></div>
-                  <button style={s.btnOutline} onClick={()=>setEditingPac({...p})}>Editar</button>
-                  <button style={{...s.btnOutline,fontSize:12,padding:"5px 10px"}} onClick={()=>openReagendar(p)}>Reagendar</button>
-                  <button style={{...s.btnOutline,fontSize:12}} onClick={()=>openAtencion(p)}>Ver</button>
+                <div key={p.rut} style={{...s.card,marginBottom:8}}>
+                  <div style={{padding:"11px 16px",display:"flex",alignItems:"center",gap:12}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div>
+                      <div style={{fontSize:12,color:"#6B7280"}}>{p.rut} · {p.email}</div>
+                      <div style={{fontSize:11,color:"#9CA3AF"}}>{prof?prof.nombre:"-"} · {sesiones.length} sesión{sesiones.length!==1?"es":""}</div>
+                    </div>
+                    <button style={s.btnOutline} onClick={()=>setEditingPac({...p})}>Editar</button>
+                    <button style={{...s.btnOutline,fontSize:12,padding:"5px 10px"}} onClick={()=>openReagendar(p)}>Reagendar</button>
+                    <button style={{...s.btnOutline,fontSize:12}} onClick={()=>openAtencion(p)}>Ver</button>
+                    <button style={{...s.btnOutline,fontSize:12,color:isExpanded?"#1a6b8a":"#6B7280",borderColor:isExpanded?"#1a6b8a":"#E5E7EB"}} onClick={()=>setExpandedRut(isExpanded?null:p.rut)}>
+                      {isExpanded?"▲ Sesiones":"▼ Sesiones"}
+                    </button>
+                  </div>
+                  {isExpanded&&(
+                    <div style={{borderTop:"1px solid #F3F4F6",padding:"10px 16px",background:"#FAFAFA"}}>
+                      <p style={{fontSize:11,fontWeight:700,color:"#6B7280",textTransform:"uppercase",marginBottom:8}}>Sesiones ({sesiones.length})</p>
+                      {sesiones.map(ses=>{
+                        const sp=profesionales.find(pr=>pr.id===ses.profesional_id);
+                        const tieneEvo=getEvo(ses.id);
+                        return(
+                          <div key={ses.id} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:"1px solid #F3F4F6"}}>
+                            <div style={{flex:1}}>
+                              <span style={{fontSize:12,fontWeight:600}}>{ses.fecha}</span>
+                              <span style={{fontSize:12,color:"#6B7280",marginLeft:8}}>{ses.hora}</span>
+                              <span style={{fontSize:11,color:"#9CA3AF",marginLeft:8}}>{sp?sp.nombre:"Sin profesional"}</span>
+                              {tieneEvo&&<span style={{...s.badge("#DCF5EB","#166534"),marginLeft:8,fontSize:10}}>Evolucionada</span>}
+                            </div>
+                            <button style={{background:"none",border:"1px solid #F7C1C1",borderRadius:6,padding:"3px 10px",cursor:"pointer",fontSize:11,color:"#A32D2D"}}
+                              onClick={async()=>{
+                                if(!window.confirm(`¿Eliminar sesión del ${ses.fecha}?\n\nEsta acción no se puede deshacer.`))return;
+                                const ok=await db.del("pacientes",ses.id);
+                                if(ok){
+                                  setPacientes(prev=>prev.filter(x=>x.id!==ses.id));
+                                  if(sesiones.length<=1)setExpandedRut(null);
+                                }else alert("Error al eliminar la sesión.");
+                              }}>
+                              🗑 Borrar
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -928,4 +977,3 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
 </body>
 </html>
-
