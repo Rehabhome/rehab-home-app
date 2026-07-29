@@ -919,6 +919,7 @@ function PanelInformes({ paciente, profesional, admin, todosPacientes, todosProf
                 <button style={{background:'#fff',color:TEAL,border:`1px solid ${TEAL}`,borderRadius:6,padding:'6px 12px',fontSize:12,cursor:'pointer'}} onClick={()=>{setInformeVer(inf);setModo('ver');}}>
                   Ver / Imprimir
                 </button>
+                <button style={{background:TEAL,color:'#fff',border:'none',borderRadius:6,padding:'6px 12px',fontSize:12,cursor:'pointer',marginLeft:4}} onClick={()=>{try{const cps=CAMPOS_FORM[inf.tipo]||[];const tl=disponibles.find(t=>t.tipo===inf.tipo)?.titulo||inf.tipo;const b64=generarPdfBase64(cps,inf.datos||{},paciente,tl,profesional);const a=document.createElement('a');a.href='data:application/pdf;base64,'+b64;a.download='informe-'+inf.tipo+'-'+(inf.fecha||'').replace(/\//g,'-')+'.pdf';a.click();}catch(e){alert('Error PDF: '+e.message);}}}>⬇ PDF</button>
               </div>
             ))}
           </div>
