@@ -708,6 +708,23 @@ function FormularioInforme({ tipo, tipoLabel, paciente, profesional, onGuardado,
         body: JSON.stringify({ paciente_id: paciente.id, profesional_id: profesional?.id||null, tipo, fecha: form.fecha||HOY, datos })
       });
       if (!res.ok) throw new Error(await res.text());
+        // Backup interno a cv@rehabhome.cl (siempre, por respaldo legal)
+        try {
+          const bkPdf = (() => { try { return generarPdfBase64(campos, form, paciente, tipoLabel, profesional); } catch(e){ return null; } })();
+          await fetch('/.netlify/functions/send-email', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+              to:'cv@rehabhome.cl',
+              paciente_nombre: paciente.nombre||'',
+              tipo_informe: tipoLabel,
+              fecha: form.fecha||HOY,
+              profesional_nombre: profesional?.nombre||'',
+              subject:'[BACKUP] informe-'+tipo+'-'+(paciente.nombre||'')+'-'+(form.fecha||HOY),
+              pdfBase64: bkPdf,
+              pdfName:'informe-'+tipo+'-'+(form.fecha||HOY)+'.pdf',
+            }),
+          });
+        } catch(bkErr){ console.warn('Backup cv falló:',bkErr); }
             // Enviar email al paciente via Netlify Function + Brevo
       if (EMAIL_ENABLED && paciente?.email) {
         try {
@@ -737,7 +754,7 @@ function FormularioInforme({ tipo, tipoLabel, paciente, profesional, onGuardado,
         }
       }
       onGuardado();
-    } catch(e) { setError('Error al guardar: ' + e.message); }
+    } catch(e) { alert('\u26a0\ufe0f ERROR al guardar el informe:\n\n' + e.message + '\n\nGuarda el contenido antes de cerrar la p\u00e1gina.'); setError('Error al guardar: ' + e.message); }
     setSaving(false);
   };
 
