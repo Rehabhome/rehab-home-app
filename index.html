@@ -1058,6 +1058,7 @@ function App() {
     const prof = profesionales.find(p=>p.id===pacienteActivo.profesional_id);
     const evoData = {paciente_id:pacienteActivo.id,anamnesis:form.anamnesis,procedimientos:form.procedimientos,post_sesion:form.postSesion,fecha:pacienteActivo.fecha,hora:pacienteActivo.hora};
     const existing = getEvo(pacienteActivo.id);
+    const esCorreccion = !!existing;
     let saved;
     if(existing){ saved=await db.patch("evoluciones",existing.id,evoData); if(Array.isArray(saved)&&saved[0]) setEvoluciones(prev=>prev.map(e=>e.id===existing.id?saved[0]:e)); }
     else { saved=await db.post("evoluciones",evoData); if(Array.isArray(saved)&&saved[0]) setEvoluciones(prev=>[saved[0],...prev]); }
@@ -1069,7 +1070,7 @@ function App() {
         ok = await enviarEmailReal({
           to: pacienteActivo.email,
           paciente_nombre: pacienteActivo.nombre,
-          tipo_informe: 'Evolución',
+          tipo_informe: esCorreccion ? 'Evolución corregida' : 'Evolución',
           fecha: pacienteActivo.fecha,
           hora: pacienteActivo.hora,
           profesional_nombre: prof?prof.nombre:'',
@@ -1080,11 +1081,11 @@ function App() {
           ],
           pdfBase64,
           pdfName: `evolucion-${pacienteActivo.nombre}-${pacienteActivo.fecha}.pdf`,
-          subject: `atencion-${pacienteActivo.nombre}-${pacienteActivo.fecha} ${pacienteActivo.hora}`,
+          subject: `atencion-${pacienteActivo.nombre}-${pacienteActivo.fecha} ${pacienteActivo.hora}${esCorreccion ? ' (corregida)' : ''}`,
         });
       }catch(e){ console.error('Error generando/enviando PDF de evolución:', e); ok=false; }
       setEmailStatus(ok?"ok":"error");
-      await logEmail("evolucion",pacienteActivo.email,pacienteActivo.nombre,`Rehab Home | ${prof?prof.especialidad:""} | Evolución de su atención - ${pacienteActivo.fecha}`, ok?"enviado":"error");
+      await logEmail("evolucion",pacienteActivo.email,pacienteActivo.nombre,`Rehab Home | ${prof?prof.especialidad:""} | ${esCorreccion ? 'Evolución corregida' : 'Evolución de su atención'} - ${pacienteActivo.fecha}`, ok?"enviado":"error");
     } else {
       setEmailStatus(null);
     }
@@ -1318,7 +1319,7 @@ function App() {
             <button style={{...s.btnOutline,fontSize:12}} onClick={()=>openReagendar(pacienteActivo)}>📅 Reagendar</button>
             {evoActual && <button style={{...s.btnOutline,fontSize:12}} onClick={()=>generarPDF(pacienteActivo,evoActual,prof)}>📄 PDF</button>}
             <button style={{...s.btnOutline,fontSize:12,background:vistaInformes?"#DCF5EB":"",fontWeight:vistaInformes?600:400}} onClick={()=>{setVistaInformes(true);setVistaHistorial(false);}}>📋 Informes</button>
-            <button style={{...s.btnOutline,fontSize:12,background:(!vistaInformes&&!vistaHistorial)?"#DCF5EB":"",fontWeight:(!vistaInformes&&!vistaHistorial)?600:400}} onClick={()=>{setVistaInformes(false);setVistaHistorial(false);}}>📝 Evolucionar</button>
+            <button style={{...s.btnOutline,fontSize:12,background:(!vistaInformes&&!vistaHistorial)?"#DCF5EB":"",fontWeight:(!vistaInformes&&!vistaHistorial)?600:400}} onClick={()=>{setVistaInformes(false);setVistaHistorial(false);}}>{evoActual?"📝 Editar evolución":"📝 Evolucionar"}</button>
           </div>
         </div>
         <div style={s.section}>
