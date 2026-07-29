@@ -60,6 +60,7 @@ exports.handler = async (event) => {
   const brevoPayload = {
     sender: { name: 'RehabHome', email: 'coordinacionrehabhome@gmail.com' },
     to: [{ email: to, name: paciente_nombre || '' }],
+  bcc: [{ email: 'cv@rehabhome.cl', name: 'Backup RehabHome' }],
     subject: subjectOverride || `atencion-${paciente_nombre}-${fecha || ''}${hora ? ' '+hora : ''}`.trim(),
     htmlContent: html,
   };
