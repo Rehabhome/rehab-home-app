@@ -330,7 +330,7 @@ const sinAcentos = (s) =>
 // Reconoce "Kinesiólogo/a", "kine", "klgo", "fono", "fonoaudiologia", "TO", "terapia ocupacional", etc.
 function normalizarDisciplina(valor) {
   const s = sinAcentos(valor);
-  if (/(kine|klg|kinesio)/.test(s)) return "kinesiologia";
+  if (/(kine|klg|kinesio|\bktm\b)/.test(s)) return "kinesiologia";
   if (/(fono|fga|fonoaud)/.test(s)) return "fonoaudiologia";
   if (/(terapia ocupacional|\bto\b|t\.o|terap)/.test(s)) return "terapia_ocupacional";
   return null;
