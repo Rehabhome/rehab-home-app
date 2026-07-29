@@ -7,6 +7,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:system-ui,sans-serif;background:#F8FAFB;color:#1a1a2e}
@@ -124,6 +125,66 @@ function generarPDF(pac, evo, prof) {
   w.document.write(html);
   w.document.close();
   setTimeout(()=>w.print(),500);
+}
+
+// Genera el mismo documento de evolución como PDF real (base64), para adjuntar al email.
+function generarPDFBase64Evolucion(pac, evo, prof) {
+  const doc = new jspdf.jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  doc.setFillColor(28,134,158);
+  doc.rect(0,0,pageWidth,28,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(18);
+  doc.setFont(undefined,'bold');
+  doc.text('RehabHome',14,14);
+  doc.setFontSize(10);
+  doc.setFont(undefined,'normal');
+  doc.text('Registro clínico',14,21);
+  doc.setFontSize(10);
+  doc.text(`${evo.fecha||''} · ${evo.hora||''}`, pageWidth-14, 21, {align:'right'});
+
+  let y = 40;
+  doc.setTextColor(26,26,46);
+  doc.setFontSize(12);
+  doc.setFont(undefined,'bold');
+  doc.text('Datos del paciente', 14, y); y+=7;
+  doc.setFont(undefined,'normal');
+  doc.setFontSize(10);
+  [['Nombre',pac.nombre],['RUT',pac.rut],['Dirección',pac.direccion],['Email',pac.email]].forEach(([label,val])=>{
+    doc.setFont(undefined,'bold'); doc.text(`${label}:`,14,y);
+    doc.setFont(undefined,'normal'); doc.text(String(val||'-'),50,y); y+=6;
+  });
+
+  y+=4;
+  doc.setFont(undefined,'bold'); doc.setFontSize(12);
+  doc.text('Profesional', 14, y); y+=7;
+  doc.setFontSize(10); doc.setFont(undefined,'normal');
+  doc.text(`${prof?prof.nombre:'-'} · ${prof?prof.especialidad:'-'}`,14,y); y+=10;
+
+  [['Anamnesis',evo.anamnesis],['Procedimientos realizados',evo.procedimientos],['Post sesión',evo.post_sesion]].forEach(([label,val])=>{
+    doc.setFont(undefined,'bold'); doc.setFontSize(11); doc.setTextColor(28,134,158);
+    doc.text(label,14,y); y+=6;
+    doc.setFont(undefined,'normal'); doc.setFontSize(10); doc.setTextColor(26,26,46);
+    const lines = doc.splitTextToSize(String(val||'-'), pageWidth-28);
+    doc.text(lines,14,y); y += lines.length*5 + 8;
+  });
+
+  return doc.output('datauristring').split(',')[1];
+}
+
+// Llama a la función serverless de Netlify que envía el correo real vía Brevo.
+async function enviarEmailReal(payload) {
+  try {
+    const res = await fetch('/.netlify/functions/send-email', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload),
+    });
+    return res.ok;
+  } catch (e) {
+    console.error('enviarEmailReal error:', e);
+    return false;
+  }
 }
 
 // ── Agendar helpers ───────────────────────────────────────────────────────────
@@ -360,14 +421,53 @@ function App() {
     let saved;
     if(existing){ saved=await db.patch("evoluciones",existing.id,evoData); if(Array.isArray(saved)&&saved[0]) setEvoluciones(prev=>prev.map(e=>e.id===existing.id?saved[0]:e)); }
     else { saved=await db.post("evoluciones",evoData); if(Array.isArray(saved)&&saved[0]) setEvoluciones(prev=>[saved[0],...prev]); }
-    setGuardado(true); setEmailStatus("ok");
-    await logEmail("evolucion",pacienteActivo.email,pacienteActivo.nombre,`Rehab Home | ${prof?prof.especialidad:""} | Evolución de su atención - ${pacienteActivo.fecha}`,"enviado");
+    setGuardado(true);
+    if(pacienteActivo.email){
+      let ok=false;
+      try{
+        const pdfBase64 = generarPDFBase64Evolucion(pacienteActivo,evoData,prof);
+        ok = await enviarEmailReal({
+          to: pacienteActivo.email,
+          paciente_nombre: pacienteActivo.nombre,
+          tipo_informe: 'Evolución',
+          fecha: pacienteActivo.fecha,
+          hora: pacienteActivo.hora,
+          profesional_nombre: prof?prof.nombre:'',
+          campos: [
+            {label:'Anamnesis', value: form.anamnesis},
+            {label:'Procedimientos realizados', value: form.procedimientos},
+            {label:'Post sesión', value: form.postSesion},
+          ],
+          pdfBase64,
+          pdfName: `evolucion-${pacienteActivo.nombre}-${pacienteActivo.fecha}.pdf`,
+          subject: `atencion-${pacienteActivo.nombre}-${pacienteActivo.fecha} ${pacienteActivo.hora}`,
+        });
+      }catch(e){ console.error('Error generando/enviando PDF de evolución:', e); ok=false; }
+      setEmailStatus(ok?"ok":"error");
+      await logEmail("evolucion",pacienteActivo.email,pacienteActivo.nombre,`Rehab Home | ${prof?prof.especialidad:""} | Evolución de su atención - ${pacienteActivo.fecha}`, ok?"enviado":"error");
+    } else {
+      setEmailStatus(null);
+    }
   };
 
   const handleReminder = async () => {
     if(!usuario) return;
     const pend = getPend(usuario.id,HOY);
-    await logEmail("recordatorio",usuario.email,usuario.nombre,`Rehab Home | ${usuario.especialidad} | Recordatorio: Evoluciones pendientes`,"enviado");
+    if(usuario.email){
+      let ok=false;
+      try{
+        ok = await enviarEmailReal({
+          to: usuario.email,
+          paciente_nombre: usuario.nombre,
+          tipo_informe: 'Recordatorio',
+          fecha: HOY,
+          profesional_nombre: usuario.nombre,
+          campos: pend.length ? pend.map(p=>({label:p.nombre, value:`${p.fecha} · ${p.hora}`})) : [{label:'Pendientes', value:'Sin evoluciones pendientes'}],
+          subject: `Rehab Home | ${usuario.especialidad} | Recordatorio: Evoluciones pendientes`,
+        });
+      }catch(e){ console.error('Error enviando recordatorio:', e); ok=false; }
+      await logEmail("recordatorio",usuario.email,usuario.nombre,`Rehab Home | ${usuario.especialidad} | Recordatorio: Evoluciones pendientes`, ok?"enviado":"error");
+    }
     setReminderSent(true);
   };
 
@@ -376,7 +476,26 @@ function App() {
     const row = await db.patch("pacientes",reagendando.id,{fecha:reagendaForm.fecha,hora:reagendaForm.hora,profesional_id:reagendaForm.profesionalId});
     if(Array.isArray(row)&&row[0]) setPacientes(prev=>prev.map(p=>p.id===reagendando.id?row[0]:p));
     const prof = profesionales.find(pr=>pr.id===reagendaForm.profesionalId);
-    await logEmail("reagendamiento",reagendando.email,reagendando.nombre,`Rehab Home | ${prof?prof.especialidad:""} | Reagendamiento de sesión`,"enviado");
+    if(reagendando.email){
+      let ok=false;
+      try{
+        ok = await enviarEmailReal({
+          to: reagendando.email,
+          paciente_nombre: reagendando.nombre,
+          tipo_informe: 'Reagendamiento',
+          fecha: reagendaForm.fecha,
+          hora: reagendaForm.hora,
+          profesional_nombre: prof?prof.nombre:'',
+          campos: [
+            {label:'Nueva fecha', value: reagendaForm.fecha},
+            {label:'Nueva hora', value: reagendaForm.hora},
+            {label:'Profesional', value: prof?prof.nombre:'-'},
+          ],
+          subject: `Rehab Home | ${prof?prof.especialidad:""} | Reagendamiento de sesión`,
+        });
+      }catch(e){ console.error('Error enviando reagendamiento:', e); ok=false; }
+      await logEmail("reagendamiento",reagendando.email,reagendando.nombre,`Rehab Home | ${prof?prof.especialidad:""} | Reagendamiento de sesión`, ok?"enviado":"error");
+    }
     setReagendaOk(true);
     setTimeout(()=>{ setReagendando(null);setReagendaOk(false); },1800);
   };
