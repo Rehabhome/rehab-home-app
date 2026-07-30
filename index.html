@@ -1595,7 +1595,7 @@ function App() {
               <div style={{...s.card,padding:16,marginBottom:14,background:"#F0FDF4"}}>
                 <p style={{fontWeight:600,fontSize:14,margin:"0 0 12px"}}>Nuevo paciente</p>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                  {[["nombre","Nombre"],["rut","RUT"],["email","Email"],["direccion","Dirección"],["hora","Hora"],["fecha","Fecha"]].map(([k,lbl])=>(<div key={k}><label style={s.label}>{lbl}</label><input style={s.input} value={newPac[k]||''} onChange={e=>{const v=e.target.value;setNewPac(f=>({...f,[k]:v}));if(k==='rut'){const ex=[...pacientes].find(p=>p.rut===v);if(ex)setTimeout(()=>setNewPac(f=>({...f,rut:v,nombre:ex.nombre||'',email:ex.email||'',direccion:ex.direccion||'',comuna:ex.comuna||''}}),0);}}}/></div>))}
+                  {[["nombre","Nombre"],["rut","RUT"],["email","Email"],["direccion","Dirección"],["hora","Hora"],["fecha","Fecha"]].map(([k,lbl])=>(<div key={k}><label style={s.label}>{lbl}</label><input style={s.input} value={newPac[k]||''} onChange={e=>{const v=e.target.value;setNewPac(f=>({...f,[k]:v}));if(k==='rut'){const ex=[...pacientes].find(p=>p.rut===v);if(ex)setTimeout(()=>setNewPac(f=>({...f,rut:v,nombre:ex.nombre||'',email:ex.email||'',direccion:ex.direccion||'',comuna:ex.comuna||''})),0);}}}/></div>))}
                   <div><label style={s.label}>Comuna</label><select style={s.input} value={newPac.comuna} onChange={e=>setNewPac(f=>({...f,comuna:e.target.value}))}><option value="">Seleccionar...</option>{COMUNAS.map(c=><option key={c}>{c}</option>)}</select></div>
                   <div><label style={s.label}>Profesional</label><select style={s.input} value={newPac.profesionalId} onChange={e=>setNewPac(f=>({...f,profesionalId:e.target.value}))}><option value="">Seleccionar...</option>{profesionales.filter(p=>p.activo).map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div>
                 </div>
@@ -1679,7 +1679,7 @@ function App() {
             <p style={{fontWeight:600,fontSize:14,margin:"0 0 14px"}}>Todas las Sesiones ({pacientes.length})</p>
             {[...pacientes].sort((a,b)=>new Date(b.fecha||0)-new Date(a.fecha||0)).map(ses=>{
               const prof=profesionales.find(pr=>pr.id===ses.profesional_id);
-              const isEditing=editingSes?.id===ses.id;
+              const isEditing=editingSes&&editingSes.id===ses.id;
               return (
                 <div key={ses.id} style={{...s.card,marginBottom:6,padding:"10px 14px"}}>
                   {isEditing ? (
@@ -1688,7 +1688,7 @@ function App() {
                       <div><label style={s.label}>Hora</label><input style={s.input} value={editSesForm.hora||""} onChange={e=>setEditSesForm(f=>({...f,hora:e.target.value}))} placeholder="ej: 10:00"/></div>
                       <div><label style={s.label}>Profesional</label><select style={s.input} value={editSesForm.profesional_id||""} onChange={e=>setEditSesForm(f=>({...f,profesional_id:e.target.value}))}><option value="">Sin profesional</option>{profesionales.filter(p=>p.activo).map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div>
                       <div style={{display:"flex",gap:6}}>
-                        <button style={s.btn("#1a6b8a")} onClick={async()=>{const row=await db.patch("pacientes",ses.id,{fecha:editSesForm.fecha,hora:editSesForm.hora,profesional_id:editSesForm.profesional_id||null});if(Array.isArray(row)&&row[0]){setPacientes(prev=>prev.map(p=>p.id===ses.id?row[0]:p));setEditingSes(null);}else alert("Error: "+(row?.message||JSON.stringify(row)));}}>Guardar</button>
+                        <button style={s.btn("#1a6b8a")} onClick={async()=>{const row=await db.patch("pacientes",ses.id,{fecha:editSesForm.fecha,hora:editSesForm.hora,profesional_id:editSesForm.profesional_id||null});if(Array.isArray(row)&&row[0]){setPacientes(prev=>prev.map(p=>p.id===ses.id?row[0]:p));setEditingSes(null);}else alert("Error: "+(row&&row.message?row.message:JSON.stringify(row)));}}>Guardar</button>
                         <button style={s.btnOutline} onClick={()=>setEditingSes(null)}>✕</button>
                       </div>
                     </div>
@@ -1697,7 +1697,7 @@ function App() {
                       <div style={{flex:1}}>
                         <span style={{fontWeight:600,fontSize:13}}>{ses.nombre}</span>
                         <span style={{fontSize:12,color:"#6B7280",marginLeft:8}}>{ses.rut}</span>
-                        <div style={{fontSize:12,color:"#9CA3AF",marginTop:2}}>{ses.fecha} {ses.hora} · {prof?.nombre||"Sin profesional"}</div>
+                        <div style={{fontSize:12,color:"#9CA3AF",marginTop:2}}>{ses.fecha} {ses.hora} · {prof?prof.nombre:"Sin profesional"}</div>
                       </div>
                       <button style={{...s.btnOutline,fontSize:12}} onClick={()=>{setEditingSes(ses);setEditSesForm({fecha:ses.fecha||"",hora:ses.hora||"",profesional_id:ses.profesional_id||""});}}>Editar</button>
                     </div>
