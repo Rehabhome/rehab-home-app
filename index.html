@@ -708,23 +708,8 @@ function FormularioInforme({ tipo, tipoLabel, paciente, profesional, onGuardado,
         body: JSON.stringify({ paciente_id: paciente.id, profesional_id: profesional?.id||null, tipo, fecha: form.fecha||HOY, datos })
       });
       if (!res.ok) throw new Error(await res.text());
-        // Backup interno a cv@rehabhome.cl (siempre, por respaldo legal)
-        try {
-          const bkPdf = (() => { try { return generarPdfBase64(campos, form, paciente, tipoLabel, profesional); } catch(e){ return null; } })();
-          await fetch('/.netlify/functions/send-email', {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({
-              to:'cv@rehabhome.cl',
-              paciente_nombre: paciente.nombre||'',
-              tipo_informe: tipoLabel,
-              fecha: form.fecha||HOY,
-              profesional_nombre: profesional?.nombre||'',
-              subject:'[BACKUP] informe-'+tipo+'-'+(paciente.nombre||'')+'-'+(form.fecha||HOY),
-              pdfBase64: bkPdf,
-              pdfName:'informe-'+tipo+'-'+(form.fecha||HOY)+'.pdf',
-            }),
-          });
-        } catch(bkErr){ console.warn('Backup cv falló:',bkErr); }
+                // (cv@rehabhome.cl recibe copia automática vía BCC en la función send-email)
+
             // Enviar email al paciente via Netlify Function + Brevo
       if (EMAIL_ENABLED && paciente?.email) {
         try {
@@ -963,6 +948,7 @@ function App() {
   const [pacienteActivo,setPacienteActivo] = useState(null);
   const [form,setForm] = useState({anamnesis:"",procedimientos:"",postSesion:""});
   const [guardado,setGuardado] = useState(false);
+  const [savingEvo,setSavingEvo] = useState(false);
   const [emailStatus,setEmailStatus] = useState(null);
   const [adminTab,setAdminTab] = useState("agenda");
   const [adminProf,setAdminProf] = useState(null);
@@ -1076,6 +1062,8 @@ function App() {
   };
 
   const handleGuardar = async () => {
+    if(savingEvo) return;
+    setSavingEvo(true);
     const prof = profesionales.find(p=>p.id===pacienteActivo.profesional_id);
     const evoData = {paciente_id:pacienteActivo.id,anamnesis:form.anamnesis,procedimientos:form.procedimientos,post_sesion:form.postSesion,fecha:pacienteActivo.fecha,hora:pacienteActivo.hora};
     const existing = getEvo(pacienteActivo.id);
@@ -1110,6 +1098,7 @@ function App() {
     } else {
       setEmailStatus(null);
     }
+    setSavingEvo(false);
   };
 
   const handleReminder = async () => {
@@ -1360,7 +1349,7 @@ function App() {
                 </div>
               ))}
               <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
-                <button style={s.btn(color)} onClick={handleGuardar}>{evoActual?"Guardar cambios":"Guardar evolución"}</button>
+                <button style={s.btn(color)} onClick={handleGuardar} disabled={savingEvo}>{savingEvo?"Guardando...":evoActual?"Guardar cambios":"Guardar evolución"}</button>
                 {guardado && <span style={{fontSize:13,color:"#1D9E75",fontWeight:500}}>✓ Guardado</span>}
               </div>
             </div>
