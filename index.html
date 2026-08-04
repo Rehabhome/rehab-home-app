@@ -250,6 +250,8 @@ function App() {
   const [expandedRut,setExpandedRut] = useState(null);
   const [filtroAdmin,setFiltroAdmin] = useState('');
   const [filtroAdminFecha,setFiltroAdminFecha] = useState('');
+  const [filtroSesNombre,setFiltroSesNombre] = useState('');
+  const [filtroSesFecha,setFiltroSesFecha] = useState('');
   const [showNewProf,setShowNewProf] = useState(false);
   const [showNewPac,setShowNewPac] = useState(false);
   const [newProf,setNewProf] = useState({nombre:"",especialidad:"Kinesiología",rut:"",email:"",color:COLORES[0]});
@@ -644,10 +646,57 @@ function App() {
           <div style={{display:"flex",gap:8}}><button style={s.btnOutline} onClick={loadAll}>↻</button><button style={s.btnOutline} onClick={handleLogout}>Salir</button></div>
         </div>
         <div style={{borderBottom:"1px solid #E5E7EB",background:"#fff",padding:"0 20px",display:"flex",gap:4,overflowX:"auto"}}>
-          {[["agenda","Agenda"],["profesionales","Profesionales"],["pacientes","Pacientes"],["emails","Emails"],["estadisticas","Estadísticas"]].map(([key,lbl])=>(
+          {[["sesiones","Sesiones"],["agenda","Agenda"],["profesionales","Profesionales"],["pacientes","Pacientes"],["emails","Emails"],["estadisticas","Estadísticas"]].map(([key,lbl])=>(
             <button key={key} style={s.tab(adminTab===key)} onClick={()=>{setAdminTab(key);setAdminProf(null);setShowNewProf(false);setShowNewPac(false);}}>{lbl}</button>
           ))}
         </div>
+
+        {adminTab==="sesiones" && (
+          <div style={s.section}>
+            <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+              <div style={{position:"relative",flex:1,minWidth:200}}>
+                <input style={{...s.input,paddingLeft:30}} placeholder="Buscar por nombre o RUT..." value={filtroSesNombre} onChange={e=>setFiltroSesNombre(e.target.value)}/>
+                <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#9CA3AF",fontSize:13}}>🔍</span>
+                {filtroSesNombre&&<button onClick={()=>setFiltroSesNombre('')} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#9CA3AF",fontSize:16}}>×</button>}
+              </div>
+              <input type="date" style={{...s.input,width:"auto"}} value={filtroSesFecha} onChange={e=>setFiltroSesFecha(e.target.value)} title="Filtrar por fecha"/>
+              {filtroSesFecha&&<button onClick={()=>setFiltroSesFecha('')} style={{...s.btnOutline,fontSize:12,padding:"5px 10px"}}>✕ Fecha</button>}
+            </div>
+            {(()=>{
+              const q=filtroSesNombre.toLowerCase();
+              const lista=[...pacientes]
+                .filter(p=>
+                  (!q||p.nombre.toLowerCase().includes(q)||(p.rut||'').includes(q))&&
+                  (!filtroSesFecha||p.fecha===filtroSesFecha)
+                )
+                .sort((a,b)=>{ const dc=(a.fecha||'').localeCompare(b.fecha||''); return dc!==0?dc:a.hora.localeCompare(b.hora); });
+              return (<>
+                <p style={{fontSize:12,color:"#6B7280",marginBottom:10}}>{lista.length} sesión{lista.length!==1?"es":""}{(filtroSesNombre||filtroSesFecha)?" (filtradas)":` de ${[...new Set(pacientes.map(p=>p.rut))].length} pacientes`}</p>
+                {lista.map(p=>{
+                  const hecho=!!getEvo(p.id);
+                  const prof=profesionales.find(pr=>pr.id===p.profesional_id);
+                  return (
+                    <div key={p.id} style={s.card}>
+                      <div style={{padding:"10px 16px",display:"flex",alignItems:"center",gap:12}}>
+                        <div style={{textAlign:"center",minWidth:58,flexShrink:0}}>
+                          <div style={{fontSize:13,fontWeight:700,color:prof?.color||"#1a6b8a"}}>{p.hora}</div>
+                          <div style={{fontSize:10,color:"#9CA3AF"}}>{p.fecha}</div>
+                        </div>
+                        <div style={{flex:1,cursor:"pointer",minWidth:0}} onClick={()=>openAtencion(p)}>
+                          <div style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.nombre}</div>
+                          <div style={{fontSize:11,color:"#6B7280"}}>{p.rut} · {prof?prof.nombre.split(" ").slice(0,2).join(" "):"Sin profesional"}</div>
+                        </div>
+                        <span style={s.badge(hecho?"#D4EDDA":"#FFF3CD",hecho?"#155724":"#856404")}>{hecho?"✓":"Pendiente"}</span>
+                        <button style={{...s.btnOutline,fontSize:12,padding:"5px 10px"}} onClick={()=>openReagendar(p)}>Reagendar</button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {lista.length===0&&<div style={{textAlign:"center",padding:"32px 0",color:"#9CA3AF"}}><div style={{fontSize:32,marginBottom:8}}>📅</div><div>Sin sesiones{filtroSesNombre||filtroSesFecha?" para este filtro":""}</div></div>}
+              </>);
+            })()}
+          </div>
+        )}
 
         {adminTab==="agenda" && (
           <div style={s.section}>
